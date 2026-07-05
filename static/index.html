@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Specialist Formula Dashboard — Guidelines &amp; Performance</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>Specialist Formula Dashboard</h1>
+        <p class="subtitle">EHF / AAF / RICE guidelines &amp; prescribing performance by ICB</p>
+      </div>
+      <div class="header-right">
+        <span id="generated-at" class="generated"></span>
+        <button id="refresh-btn" title="Re-read the source Excel files">&#8635; Refresh data</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="loading" class="loading">Loading data&hellip;</div>
+
+  <main id="dashboard" hidden>
+    <!-- Filters -->
+    <section class="filters card">
+      <div class="filter">
+        <label for="f-period">Period</label>
+        <select id="f-period">
+          <option value="mat">MAT (12 mo)</option>
+          <option value="qtr">Rolling QTR (3 mo)</option>
+          <option value="ytd">YTD</option>
+          <option value="all">All data</option>
+          <option value="custom">Custom&hellip;</option>
+        </select>
+      </div>
+      <div class="filter custom-range" hidden>
+        <label for="f-from">From</label>
+        <select id="f-from"></select>
+      </div>
+      <div class="filter custom-range" hidden>
+        <label for="f-to">To</label>
+        <select id="f-to"></select>
+      </div>
+      <div class="filter">
+        <label for="f-metric">Metric</label>
+        <select id="f-metric">
+          <option value="factored_units" selected>Factored Units (KGs)</option>
+          <option value="value">Value (&pound;)</option>
+          <option value="units">Units</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label>NHS Region</label>
+        <div class="msel" id="ms-region">
+          <button type="button" class="msel-btn">All regions</button>
+          <button type="button" class="msel-clear" title="Clear regions" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>ICB / APC</label>
+        <div class="msel" id="ms-icb">
+          <button type="button" class="msel-btn">All ICBs</button>
+          <button type="button" class="msel-clear" title="Clear ICBs" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Manufacturer</label>
+        <div class="msel" id="ms-manufacturer">
+          <button type="button" class="msel-btn">All manufacturers</button>
+          <button type="button" class="msel-clear" title="Clear manufacturers" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Brand</label>
+        <div class="msel" id="ms-brand">
+          <button type="button" class="msel-btn">All brands</button>
+          <button type="button" class="msel-clear" title="Clear brands" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>HDM</label>
+        <div class="msel" id="ms-hdm">
+          <button type="button" class="msel-btn">All HDMs</button>
+          <button type="button" class="msel-clear" title="Clear HDMs" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <button id="clear-filters" class="ghost">Clear all</button>
+    </section>
+    <p class="period-caption" id="period-caption"></p>
+
+    <!-- Per-category KPI cards -->
+    <section class="kpis" id="cat-cards">
+      <!-- EHF / AAF / RICE cards injected by JS -->
+      <div class="card kpi gl-kpi">
+        <span class="kpi-label">Guideline changes</span>
+        <span class="kpi-value" id="kpi-gl-changes"></span>
+        <span class="kpi-sub" id="kpi-gl-changes-sub"></span>
+        <span class="kpi-sub danger" id="kpi-gl-overdue"></span>
+      </div>
+    </section>
+
+    <!-- Charts -->
+    <section class="grid-2">
+      <div class="card chart-card wide">
+        <div class="card-head">
+          <h2>Monthly trend <span class="hint" id="trend-hint"></span></h2>
+          <div class="toggle-group">
+            <div class="toggle" id="trend-toggle">
+              <button data-mode="brand" class="active">By brand</button>
+              <button data-mode="product">By product</button>
+              <button data-mode="manufacturer">By manufacturer</button>
+              <button data-mode="category">By category</button>
+            </div>
+            <div class="toggle" id="trend-value-toggle">
+              <button data-mode="actual" class="active">Actuals</button>
+              <button data-mode="ms">MS%</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chart-trend"></canvas></div>
+      </div>
+
+      <div class="card chart-card wide">
+        <h2>Brand MS% within each category <span class="hint">(share of selected metric, selected period)</span></h2>
+        <div class="chart-wrap"><canvas id="chart-cat-ms"></canvas></div>
+      </div>
+
+      <div class="card chart-card">
+        <h2>Brand MS%</h2>
+        <div class="chart-wrap"><canvas id="chart-share"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <h2>Manufacturer MS%</h2>
+        <div class="chart-wrap"><canvas id="chart-mfr"></canvas></div>
+      </div>
+
+      <div class="card chart-card wide">
+        <h2>Top 15 ICBs <span class="hint">(click a bar to drill in)</span></h2>
+        <div class="chart-wrap tall"><canvas id="chart-icbs"></canvas></div>
+      </div>
+
+      <div class="card chart-card wide">
+        <h2>Guideline status vs brand mix <span class="hint">(MS% within each guideline status)</span></h2>
+        <div class="chart-wrap tall"><canvas id="chart-gl"></canvas></div>
+      </div>
+
+      <div class="card chart-card wide">
+        <h2>Guideline change timeline <span class="hint">(publications per quarter &amp; reviews falling due)</span></h2>
+        <div class="chart-wrap tall"><canvas id="chart-gl-timeline"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Exclusive 1st-line performance -->
+    <section class="card">
+      <div class="card-head">
+        <h2>Exclusive 1st-line products — actuals &amp; MS%
+          <span class="hint">(performance of the product while it was exclusive in that ICB's guideline; full exclusivity window, ignores the period filter)</span>
+        </h2>
+      </div>
+      <div class="table-wrap">
+        <table id="excl-table">
+          <thead>
+            <tr>
+              <th data-sort="icb">ICB / APC</th>
+              <th data-sort="cat">Category</th>
+              <th data-sort="product">Exclusive 1st line</th>
+              <th data-sort="from">Exclusive window</th>
+              <th data-sort="months">Months</th>
+              <th data-sort="actual">Actual (total)</th>
+              <th data-sort="avg">Avg / mo</th>
+              <th data-sort="ms">MS%</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin:8px 2px 0">
+        MS% = the exclusive product's share of that ICB's category volume during the window.
+        Sorted lowest MS% first by default — the top rows are where exclusivity is converting worst. Click a row to drill into the ICB.
+      </p>
+    </section>
+
+    <!-- ICB change tracker -->
+    <section class="card" id="tracker-card">
+      <div class="card-head">
+        <h2>ICB Change Tracker <span class="hint" id="tracker-hint"></span></h2>
+        <button id="tracker-back" class="ghost" hidden>&larr; All ICBs</button>
+      </div>
+      <div id="tracker-body"></div>
+    </section>
+
+    <!-- Guidelines table -->
+    <section class="card">
+      <div class="card-head">
+        <h2>Guidelines by ICB</h2>
+        <input type="search" id="gl-search" placeholder="Search ICB, HDM, guideline&hellip;">
+      </div>
+      <div class="table-wrap">
+        <table id="gl-table">
+          <thead>
+            <tr>
+              <th data-sort="ICB">ICB / APC</th>
+              <th data-sort="ehf_gl">EHF GL</th>
+              <th data-sort="ehf_first">EHF 1st line</th>
+              <th data-sort="aaf_gl">AAF GL</th>
+              <th data-sort="aaf_first">AAF 1st line</th>
+              <th data-sort="hdm">HDM</th>
+              <th data-sort="latest_published">Published</th>
+              <th data-sort="next_review">Next review</th>
+              <th data-sort="change_status">Change status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

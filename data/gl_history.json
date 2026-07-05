@@ -1,0 +1,1402 @@
+{
+ "ANEURIN BEVAN UNIV HB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2022-02-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Aneurin Bevan University HB Guideline",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2022-02-01",
+    "next_review": "2025-02-01"
+   },
+   "changes": []
+  }
+ ],
+ "BANES SWINDN & WILTS ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-07-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Pepti",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Alfamino",
+    "aaf_second": "Neocate / Puramino",
+    "gl_followed": "Bath and NE Somerset CCG Formulary",
+    "hdm": "Tom Mayo",
+    "latest_published": "2023-07-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "BEDS LUTN & MILT KNS ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-09-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Althera / Pepti",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Puramino",
+    "aaf_second": "Alfamino / Neocate",
+    "gl_followed": "Luton and Bedfordshire Guidelines",
+    "hdm": "Chris Mines",
+    "latest_published": "2024-09-01",
+    "next_review": "2026-09-01"
+   },
+   "changes": []
+  }
+ ],
+ "BELFAST AIPB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Northern Ireland",
+    "hdm": "Paula Hobson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "BETSI CADWALADR UNI HB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Betsi Cadwaladr University Health Board - Hospital only",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "BIRMINGHM & SOLIHULL ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-04-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Birmingham, Sandwell, Solihull and environs APC",
+    "hdm": "Lauren Eade",
+    "latest_published": "2023-04-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "BLACK COUNTRY ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2021-07-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Pepti",
+    "aaf_gl": "Joint First Line",
+    "aaf_first": "Alfamino / Neocate",
+    "aaf_second": "Puramino",
+    "gl_followed": "Dudley CCG guidelines",
+    "hdm": "Lauren Eade",
+    "latest_published": "2021-07-01",
+    "next_review": "2023-07-01"
+   },
+   "changes": []
+  }
+ ],
+ "BRSTL N SOMER S GLOS ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2025-02-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Bristol CCG Guidelines",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2025-02-01",
+    "next_review": "2026-12-01"
+   },
+   "changes": []
+  }
+ ],
+ "BUCKS OXFSH & BRKS W ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-07-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Pepti",
+    "ehf_second": "Mixed: Altehra | Altehra / Nutramigen",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Mixed: Alfamino | Puramino",
+    "aaf_second": "Mixed: Alfamino / Neocate | Neocate / Puramino",
+    "gl_followed": "Buckinghamshire, Oxfordshire and Berkshire",
+    "hdm": "Senur Bokth",
+    "latest_published": "2024-07-01",
+    "next_review": "2027-07-01"
+   },
+   "changes": []
+  }
+ ],
+ "CAMBS & PETERBOROUGH ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-10-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Alfamino",
+    "aaf_second": "",
+    "gl_followed": "Cambridge Community Services",
+    "hdm": "Chris Mines",
+    "latest_published": "2023-10-01",
+    "next_review": "2025-10-01"
+   },
+   "changes": []
+  }
+ ],
+ "CARDIFF & VALE UNIV HB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2020-06-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Nutramigen",
+    "ehf_second": "",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Alfamino",
+    "aaf_second": "",
+    "gl_followed": "Cardiff and Vale University HB Guidelines",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2020-06-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "CHANNEL ISLANDS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Mixed: Jersey Guidelines | no Guideline",
+    "hdm": "Tom Mayo",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "CHESHIRE & MERSEYSDE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2021-07-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Mixed: CHESHIRE CCG | Pan Mersey Guideline",
+    "hdm": "Julie Botham",
+    "latest_published": "2021-07-01",
+    "next_review": "2024-07-01"
+   },
+   "changes": []
+  }
+ ],
+ "COVENTRY & WARWICKSH ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2018-01-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Nutramigen",
+    "ehf_second": "Althera / Pepti",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Coventry & Warwickshire APC",
+    "hdm": "Lauren Eade",
+    "latest_published": "2018-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "CRNWLL & IS OF SCILL ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Nutramigen",
+    "ehf_second": "",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Kernow CCG Formulary",
+    "hdm": "Tom Mayo",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "CWM TAF MORG UNIV HB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Cwm Taf University Health Board - Formulary Guidelines Primary and Secondary Care not in public domain",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "DERBY & DERBYSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-07-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Nutramigen / Althera",
+    "ehf_second": "Pepti",
+    "aaf_gl": "Joint First Line",
+    "aaf_first": "Alfamino / Neocate",
+    "aaf_second": "Puramino",
+    "gl_followed": "Derbyshire Joint Area Prescribing Committee",
+    "hdm": "Lauren Eade",
+    "latest_published": "2024-07-01",
+    "next_review": "2027-09-01"
+   },
+   "changes": []
+  }
+ ],
+ "DEVON ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Nutramigen / Althera",
+    "ehf_second": "",
+    "aaf_gl": "Joint First Line",
+    "aaf_first": "Alfamino / Neocate",
+    "aaf_second": "",
+    "gl_followed": "North and East Devon Guideline",
+    "hdm": "Tom Mayo",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "DORSET ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2018-05-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Wessex Guideline",
+    "hdm": "Tom Mayo",
+    "latest_published": "2018-05-01",
+    "next_review": "2019-05-01"
+   },
+   "changes": []
+  }
+ ],
+ "FRIMLEY HLTH & CARE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2022-12-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Althera / Pepti",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Frimley Guideline",
+    "hdm": "Nehal Krayenbrink",
+    "latest_published": "2022-12-01",
+    "next_review": "2025-12-01"
+   },
+   "changes": []
+  }
+ ],
+ "GLOUCESTERSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Nutramigen / Pepti",
+    "ehf_second": "",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Neocate Syneo",
+    "aaf_second": "Puramino / Alfamino",
+    "gl_followed": "GLOUCESTERSHIRE Sub-ICB",
+    "hdm": "Tom Mayo",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "GREATER MANCHESTER ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2020-05-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Greater Manchester Medicines Management",
+    "hdm": "Julie Botham",
+    "latest_published": "2020-05-01",
+    "next_review": "2024-04-01"
+   },
+   "changes": []
+  }
+ ],
+ "HAMPSHIRE & IOW ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2018-05-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Mixed: HANTS SOTON & IOW CCG | Wessex Guideline",
+    "hdm": "Senur Bokth",
+    "latest_published": "2018-05-01",
+    "next_review": "2019-05-01"
+   },
+   "changes": []
+  }
+ ],
+ "HEREFORDSHRE & WORCS ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2022-02-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Pepti/ Althera",
+    "ehf_second": "",
+    "aaf_gl": "Joint First Line",
+    "aaf_first": "Alfamino / Neocate",
+    "aaf_second": "Puramino",
+    "gl_followed": "Herefordshire CCG Guideline",
+    "hdm": "Tom Mayo",
+    "latest_published": "2022-02-01",
+    "next_review": "2025-02-01"
+   },
+   "changes": []
+  }
+ ],
+ "HERTFORDSH & W ESSEX ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-04-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Puramino",
+    "aaf_second": "Neocate",
+    "gl_followed": "Herts & West Essex",
+    "hdm": "Chris Mines",
+    "latest_published": "2024-04-01",
+    "next_review": "2027-04-01"
+   },
+   "changes": []
+  }
+ ],
+ "HUMBER & N YORKSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-10-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Mixed: Hull and East Riding APC | Lincolnshire Joint Formulary | North Yorkshire GL | Northern Lincolnshire APC Guideline | Vale of Yorkshire Guidelines",
+    "hdm": "Mixed: Lauren Eade | Mahboob Ahmed",
+    "latest_published": "2023-10-01",
+    "next_review": "2026-10-01"
+   },
+   "changes": []
+  }
+ ],
+ "HYWEL DDA UNIVERSITY HB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-11-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Puramino",
+    "aaf_second": "",
+    "gl_followed": "Hywel Dda",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2024-11-01",
+    "next_review": "2026-11-01"
+   },
+   "changes": []
+  }
+ ],
+ "ISLE OF MAN": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "no Guideline",
+    "hdm": "Julie Botham",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "KENT & MEDWAY ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2021-10-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Nutramigen / Althera",
+    "ehf_second": "Pepti",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "KENT & MEDWAY CCG",
+    "hdm": "Senur Bokth",
+    "latest_published": "2021-10-01",
+    "next_review": "2023-10-01"
+   },
+   "changes": []
+  }
+ ],
+ "LANCS & S CUMBRIA ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2025-02-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Lancs & S Cumbria ICS",
+    "hdm": "Julie Botham",
+    "latest_published": "2025-02-01",
+    "next_review": "2028-02-01"
+   },
+   "changes": []
+  }
+ ],
+ "LEICS LEICSTSH & RUT ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-05-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Nutramigen / Althera",
+    "ehf_second": "",
+    "aaf_gl": "Joint First Line",
+    "aaf_first": "Alfamino / Neocate",
+    "aaf_second": "",
+    "gl_followed": "Leicester Meds Management",
+    "hdm": "Lauren Eade",
+    "latest_published": "2023-05-01",
+    "next_review": "2026-05-01"
+   },
+   "changes": []
+  }
+ ],
+ "LINCOLNSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-01-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Nutramigen / Pepti",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Alfamino",
+    "aaf_second": "Puramino / Alfamino",
+    "gl_followed": "Lincolnshire Joint Formulary",
+    "hdm": "Lauren Eade",
+    "latest_published": "2024-01-01",
+    "next_review": "2029-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "MID & SOUTH ESSEX ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-01-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Althera",
+    "ehf_second": "Nutramigen / Pepti",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Alfamino",
+    "aaf_second": "Puramino / Alfamino",
+    "gl_followed": "Mid and South Essex",
+    "hdm": "Chris Mines",
+    "latest_published": "2024-01-01",
+    "next_review": "2029-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "N EAST & N CUMBRIA ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2025-02-13",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "NENC Guidelines",
+    "hdm": "Mahboob Ahmed",
+    "latest_published": "2025-02-13",
+    "next_review": "2027-02-13"
+   },
+   "changes": []
+  }
+ ],
+ "NHS AYRSHIRE & ARRAN": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "no Guideline",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS BORDERS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "no Guideline",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS DUMFRIES & GALLOWAY": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-07-05",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Pepti",
+    "ehf_second": "Althera",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Neocate",
+    "aaf_second": "Alfamino",
+    "gl_followed": "Dumfries & Galloway Guideline",
+    "hdm": "Carol Wilson",
+    "latest_published": "2024-07-05",
+    "next_review": "2026-07-05"
+   },
+   "changes": []
+  }
+ ],
+ "NHS FIFE": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Fife HB Guidelines",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS FORTH VALLEY": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-12-14",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Pepti",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Neocate",
+    "aaf_second": "Alfamino",
+    "gl_followed": "Forth Valley Guidelines",
+    "hdm": "Carol Wilson",
+    "latest_published": "2023-12-14",
+    "next_review": "2025-12-14"
+   },
+   "changes": []
+  }
+ ],
+ "NHS GRAMPIAN": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Nutramigen",
+    "ehf_second": "Pepti",
+    "aaf_gl": "Exclusive",
+    "aaf_first": "Alfamino",
+    "aaf_second": "Neocate",
+    "gl_followed": "NHS Grampian HB Guidline",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS GTR GLASGOW & CLYDE": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2022-03-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Pepti",
+    "ehf_second": "",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Glasgow Guidelines",
+    "hdm": "Carol Wilson",
+    "latest_published": "2022-03-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS HIGHLAND": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Highland Guidelines",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS LANARKSHIRE": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2021-06-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Lanarkshire Guidelines",
+    "hdm": "Carol Wilson",
+    "latest_published": "2021-06-01",
+    "next_review": "2023-06-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS LOTHIAN": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Lothian Guidelines",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS ORKNEY": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "no Guideline",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS SHETLAND": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "no Guideline",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS TAYSIDE": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Tayside Guidelines",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NHS WESTERN ISLES": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "no Guideline",
+    "hdm": "Carol Wilson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NORFOLK & WAVENEY ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Althera / Pepti",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "NORFOLK & WAVENEY CCG",
+    "hdm": "Chris Mines",
+    "latest_published": "2050-01-01",
+    "next_review": "2025-10-01"
+   },
+   "changes": []
+  }
+ ],
+ "NORTH CENTRAL LONDON ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "NORTH CENTRAL LONDON CCG",
+    "hdm": "Nehal Krayenbrink",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NORTH EAST LONDON ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2016-01-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Nutramigen",
+    "ehf_second": "Pepti / Althera",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "North East London CCG",
+    "hdm": "Nehal Krayenbrink",
+    "latest_published": "2016-01-01",
+    "next_review": "2019-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NORTH WEST LONDON ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "North West London CCG",
+    "hdm": "Nehal Krayenbrink",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NORTHAMPTONSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Nutramigen / Pepti",
+    "ehf_second": "",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "NORTHAMPTONSHIRE CCG",
+    "hdm": "Chris Mines",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NORTHERN AIPB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Northern Ireland",
+    "hdm": "Paula Hobson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "NOTTNGM & NOTTSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2022-05-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Nutramigen",
+    "ehf_second": "Pepti/Althera",
+    "aaf_gl": "Joint First Line",
+    "aaf_first": "Alfamino/Neocate",
+    "aaf_second": "Puramino",
+    "gl_followed": "Nottingham APC Guidelines",
+    "hdm": "Lauren Eade",
+    "latest_published": "2022-05-01",
+    "next_review": "2025-05-01"
+   },
+   "changes": []
+  }
+ ],
+ "POWYS TEACHING HB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "no Guideline",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "SHROPSH TELFD & WREK ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Shropshire CCG Guidelines",
+    "hdm": "Tom Mayo",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "SOMERSET ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2022-05-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Althera / Pepti",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Somerset CCG Guidelines",
+    "hdm": "Tom Mayo",
+    "latest_published": "2022-05-01",
+    "next_review": "2023-05-01"
+   },
+   "changes": []
+  }
+ ],
+ "SOUTH EAST LONDON ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-08-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "South East London APC",
+    "hdm": "Nehal Krayenbrink",
+    "latest_published": "2024-08-01",
+    "next_review": "2025-08-01"
+   },
+   "changes": []
+  }
+ ],
+ "SOUTH EASTERN AIPB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Northern Ireland",
+    "hdm": "Paula Hobson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "SOUTH WEST LONDON ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Joint First Line",
+    "ehf_first": "Althera / Pepti",
+    "ehf_second": "Nutramigen",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "SOUTH WEST LONDON CCG",
+    "hdm": "Nehal Krayenbrink",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "SOUTH YORKSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-10-01",
+   "state": {
+    "ehf_gl": "Mixed: ALL | Joint First Line",
+    "ehf_first": "Mixed: ALL | Nutramigen / Pepti",
+    "ehf_second": "Mixed: ALL | Althera",
+    "aaf_gl": "Mixed: ALL | Exclusive",
+    "aaf_first": "Mixed: ALL | Neocate",
+    "aaf_second": "Mixed: ALL | Alfamino / Puramino",
+    "gl_followed": "NHS Barnsley CCG (The Barnsley APC)",
+    "hdm": "Mahboob Ahmed",
+    "latest_published": "2023-10-01",
+    "next_review": "2026-10-01"
+   },
+   "changes": []
+  }
+ ],
+ "SOUTHERN AIPB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Northern Ireland",
+    "hdm": "Paula Hobson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "STAFFSH & STOKE-TRNT ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Mixed: ALL | Joint First Line",
+    "ehf_first": "Mixed: ALL | Pepti / Althera",
+    "ehf_second": "Mixed: ALL | Nutramigen",
+    "aaf_gl": "Mixed: ALL | Exclusive",
+    "aaf_first": "Mixed: ALL | Neocate",
+    "aaf_second": "Mixed: ALL | Puramino / Alfamino",
+    "gl_followed": "Mixed: South Staffordshire Joint Formulary | Staffordshire Joint Formulary",
+    "hdm": "Julie Botham",
+    "latest_published": "2050-01-01",
+    "next_review": "2026-04-01"
+   },
+   "changes": []
+  }
+ ],
+ "SUFFOLK & NE ESSEX ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "Mixed: ALL | Joint First Line",
+    "ehf_first": "Mixed: ALL | Nutramigen / Pepti",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "SNEE",
+    "hdm": "Chris Mines",
+    "latest_published": "2050-01-01",
+    "next_review": "2023-11-01"
+   },
+   "changes": []
+  }
+ ],
+ "SURREY HEARTLANDS ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2023-10-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Surrey & Sussex CCG Guidelines",
+    "hdm": "Nehal Krayenbrink",
+    "latest_published": "2023-10-01",
+    "next_review": "2026-10-01"
+   },
+   "changes": []
+  }
+ ],
+ "SUSSEX ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2025-01-01",
+   "state": {
+    "ehf_gl": "Exclusive",
+    "ehf_first": "Nutramigen",
+    "ehf_second": "Mixed: Pepti | Pepti / Althera",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Sussex ICB",
+    "hdm": "Senur Bokth",
+    "latest_published": "2025-01-01",
+    "next_review": "2027-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "SWANSEA BAY UNIV HB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2019-06-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "Joint First Line",
+    "aaf_first": "Alfamino / Puramino",
+    "aaf_second": "",
+    "gl_followed": "Abertawe Bro Morgannwg HB Guidelines",
+    "hdm": "Lorna Thyer",
+    "latest_published": "2019-06-01",
+    "next_review": "2021-06-01"
+   },
+   "changes": []
+  }
+ ],
+ "WEST YORKSHIRE ICS": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2024-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Mixed: Leeds CCG Formulary | South West Yorkshire APC",
+    "hdm": "Mahboob Ahmed",
+    "latest_published": "2024-01-01",
+    "next_review": "2028-01-01"
+   },
+   "changes": []
+  }
+ ],
+ "WESTERN AIPB": [
+  {
+   "version": 1,
+   "detected_at": "2026-07-05T13:07:50",
+   "effective_date": "2050-01-01",
+   "state": {
+    "ehf_gl": "ALL",
+    "ehf_first": "ALL",
+    "ehf_second": "ALL",
+    "aaf_gl": "ALL",
+    "aaf_first": "ALL",
+    "aaf_second": "ALL",
+    "gl_followed": "Northern Ireland",
+    "hdm": "Paula Hobson",
+    "latest_published": "2050-01-01",
+    "next_review": "2050-01-01"
+   },
+   "changes": []
+  }
+ ]
+}
