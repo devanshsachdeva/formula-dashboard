@@ -24,6 +24,8 @@ from flask import Flask, jsonify, request, send_from_directory
 import process_data
 
 app = Flask(__name__, static_folder="static", static_url_path="")
+# always revalidate static assets so browsers pick up dashboard JS/CSS changes
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
 # in-memory cache: (payload_json_string, source_signature)
 _cache = {"json": None, "sig": None}
@@ -92,4 +94,10 @@ if __name__ == "__main__":
     print(f"Reading guidelines : {process_data.GL_XLSX}")
     print(f"Reading performance: {process_data.PERF_XLSX}")
     get_payload()  # warm the cache (and surface missing-file errors) at startup
-    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5001)), debug=False)
+    # 0.0.0.0 = listen on all interfaces so other devices on the same WiFi can
+    # reach the dashboard; set HOST=127.0.0.1 to restrict it to this machine.
+    app.run(
+        host=os.environ.get("HOST", "0.0.0.0"),
+        port=int(os.environ.get("PORT", 5001)),
+        debug=False,
+    )

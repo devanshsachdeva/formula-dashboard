@@ -304,6 +304,9 @@ td.icb-cell { font-weight: 600; cursor: pointer; color: var(--accent); }
 
 /* ICB change tracker */
 .tracker-grid { display: grid; grid-template-columns: minmax(320px, 1fr) 1.4fr; gap: 20px; }
+/* allow grid items to shrink below their content width so wide tables
+   scroll inside .table-wrap instead of overflowing the card */
+.tracker-grid > .tracker-col { min-width: 0; }
 .tracker-col h3 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 
 .version-list { display: flex; flex-direction: column; gap: 0; position: relative; }
@@ -372,9 +375,25 @@ td.icb-cell { font-weight: 600; cursor: pointer; color: var(--accent); }
 .delta.down { color: var(--danger); }
 .delta.flat { color: var(--muted); }
 
+.excl-product-filter { display: flex; align-items: center; gap: 6px; }
+.excl-product-filter label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.excl-product-filter select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink);
+}
+
 .explorer-block { margin-top: 20px; }
 .explorer-block h3 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .explorer-block h3 .hint { text-transform: none; letter-spacing: normal; font-weight: 400; }
+
+.mjn-moves { margin-bottom: 18px; }
+.mjn-moves h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.mjn-moves h3 .hint { text-transform: none; letter-spacing: normal; font-weight: 400; }
+.mjn-moves tbody tr { cursor: pointer; }
 
 .tracker-summary tbody tr { cursor: pointer; }
 .change-count { font-weight: 700; }

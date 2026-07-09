@@ -54,6 +54,14 @@
         </select>
       </div>
       <div class="filter">
+        <label>Category</label>
+        <div class="msel" id="ms-category">
+          <button type="button" class="msel-btn">All categories</button>
+          <button type="button" class="msel-clear" title="Clear categories" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
         <label>NHS Region</label>
         <div class="msel" id="ms-region">
           <button type="button" class="msel-btn">All regions</button>
@@ -148,6 +156,8 @@
         <div class="chart-wrap tall"><canvas id="chart-icbs"></canvas></div>
       </div>
 
+      <!-- temporarily hidden (restore by uncommenting; JS render calls are
+           commented out in dashboard.js render() too)
       <div class="card chart-card wide">
         <h2>Guideline status vs brand mix <span class="hint">(MS% within each guideline status)</span></h2>
         <div class="chart-wrap tall"><canvas id="chart-gl"></canvas></div>
@@ -157,6 +167,32 @@
         <h2>Guideline change timeline <span class="hint">(publications per quarter &amp; reviews falling due)</span></h2>
         <div class="chart-wrap tall"><canvas id="chart-gl-timeline"></canvas></div>
       </div>
+      -->
+    </section>
+
+    <!-- First-line exclusive performance trend -->
+    <section class="card">
+      <div class="card-head">
+        <h2>First-line exclusive performance trend
+          <span class="hint" id="excl-trend-hint"></span>
+        </h2>
+        <div class="toggle-group">
+          <div class="excl-product-filter">
+            <label for="excl-product">First-line product</label>
+            <select id="excl-product"></select>
+          </div>
+          <div class="toggle" id="excl-dim-toggle">
+            <button data-dim="brand" class="active">Brands</button>
+            <button data-dim="product">Products</button>
+          </div>
+          <div class="toggle" id="excl-val-toggle">
+            <button data-mode="ms" class="active">MS%</button>
+            <button data-mode="actual">Actuals</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="chart-excl-trend"></canvas></div>
+      <p class="hint" id="excl-trend-caption" style="margin:8px 2px 0"></p>
     </section>
 
     <!-- Exclusive 1st-line performance -->

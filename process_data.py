@@ -117,6 +117,8 @@ def load_performance() -> pd.DataFrame:
         perf[col] = perf[col].astype(str).str.strip()
     perf["DATE"] = pd.to_datetime(perf["DATE"], errors="coerce")
     perf = perf.dropna(subset=["DATE"])
+    # exclude the OTHER bucket (Pregestimil, Elecare) from performance entirely
+    perf = perf[perf["BRAND"] != "OTHER"]
 
     agg = (
         perf.groupby(
@@ -170,8 +172,19 @@ def source_signature() -> tuple:
 # ---------------------------------------------------------------------------
 
 EVENTS_XLSX = os.path.join(DATA_DIR, "GL Events.xlsx")
-EVENT_HEADERS = ["ICB", "Date", "Category", "Description", "Added"]
+EVENT_HEADERS = [
+    "ICB", "Date", "Category", "Description", "Added", "Source",
+    "Published Date", "Next Review Date",
+]
 EVENT_CATEGORIES = {"EHF", "AAF", "RICE", "ALL"}
+
+# labels used when writing auto-detected changes into the events register
+EVENT_FIELD_LABELS = {
+    "ehf_gl": "EHF GL", "ehf_first": "EHF 1st line", "ehf_second": "EHF 2nd line",
+    "aaf_gl": "AAF GL", "aaf_first": "AAF 1st line", "aaf_second": "AAF 2nd line",
+    "gl_followed": "GL followed", "hdm": "HDM",
+    "latest_published": "Published", "next_review": "Next review",
+}
 
 
 def ensure_events_file() -> None:
@@ -183,9 +196,23 @@ def ensure_events_file() -> None:
     ws = wb.active
     ws.title = "Events"
     ws.append(EVENT_HEADERS)
-    for col, width in zip("ABCDE", (28, 12, 10, 60, 18)):
+    for col, width in zip("ABCDEFGH", (28, 12, 10, 60, 18, 10, 14, 16)):
         ws.column_dimensions[col].width = width
     wb.save(EVENTS_XLSX)
+
+
+def _events_sheet(wb):
+    ws = wb["Events"] if "Events" in wb.sheetnames else wb.active
+    # migrate older files: append any missing headers (Source, Published Date,
+    # Next Review Date) in EVENT_HEADERS order so positional appends line up
+    existing = [str(c.value).strip() for c in ws[1] if c.value]
+    col = len(existing) + 1
+    for h in EVENT_HEADERS:
+        if h not in existing:
+            ws.cell(row=1, column=col, value=h)
+            existing.append(h)
+            col += 1
+    return ws
 
 
 def load_events() -> list:
@@ -205,28 +232,81 @@ def load_events() -> list:
     ev["ICB"] = ev["ICB"].astype(str).str.strip()
     ev = ev[~ev["ICB"].isin(["", "nan", "None"])]
 
+    def _date(v):
+        d = pd.to_datetime(v, errors="coerce")
+        return "" if pd.isna(d) else d.strftime("%Y-%m-%d")
+
     out = []
     for r in ev.to_dict(orient="records"):
+        # Auto rows are the Excel record of changes the app already tracks in
+        # gl_history — skip them here so timelines/intervals don't double-count.
+        if _clean(r.get("Source")).upper() == "AUTO":
+            continue
         cat = _clean(r.get("Category")).upper() or "ALL"
         out.append({
             "icb": r["ICB"],
             "date": r["Date"].strftime("%Y-%m-%d"),
             "category": cat if cat in EVENT_CATEGORIES else "ALL",
             "description": _clean(r.get("Description")),
+            "published": _date(r.get("Published Date")),
+            "review": _date(r.get("Next Review Date")),
         })
     out.sort(key=lambda e: e["date"])
     return out
 
 
-def append_event(icb: str, date: str, category: str, description: str) -> None:
+def append_event(icb: str, date: str, category: str, description: str,
+                 published: str = "", review: str = "") -> None:
     ensure_events_file()
     from openpyxl import load_workbook
 
     wb = load_workbook(EVENTS_XLSX)
-    ws = wb["Events"] if "Events" in wb.sheetnames else wb.active
+    ws = _events_sheet(wb)
     ws.append([icb, date, category, description,
-               datetime.now().strftime("%Y-%m-%d %H:%M")])
+               datetime.now().strftime("%Y-%m-%d %H:%M"), "Manual",
+               published, review])
     wb.save(EVENTS_XLSX)
+
+
+def record_auto_events(records: list) -> None:
+    """Mirror auto-detected guideline changes into the events workbook so the
+    Excel file is a durable register of GL updates (new publish/review dates,
+    status changes). Marked Source=Auto; the app itself reads these changes
+    from gl_history, so Auto rows are record-keeping only."""
+    if not records:
+        return
+    ensure_events_file()
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(EVENTS_XLSX)
+        ws = _events_sheet(wb)
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        for r in records:
+            ws.append([r["icb"], r["date"], r["category"], r["description"], stamp, "Auto",
+                       r.get("published", ""), r.get("review", "")])
+        wb.save(EVENTS_XLSX)
+    except Exception as e:  # e.g. file locked by Excel — never break the build
+        print(f"warning: could not write auto GL events to {EVENTS_XLSX}: {e}")
+
+
+def _change_category(changes: list) -> str:
+    fields = {c["field"] for c in changes}
+    ehf = any(f.startswith("ehf_") for f in fields)
+    aaf = any(f.startswith("aaf_") for f in fields)
+    if ehf and not aaf:
+        return "EHF"
+    if aaf and not ehf:
+        return "AAF"
+    return "ALL"
+
+
+def _change_description(version: int, changes: list) -> str:
+    parts = [
+        f'{EVENT_FIELD_LABELS.get(c["field"], c["field"])}: {c["old"] or "—"} → {c["new"] or "—"}'
+        for c in changes
+    ]
+    return f"GL updated (v{version}): " + "; ".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +349,7 @@ def update_history(gl_summary: pd.DataFrame) -> dict:
     now_iso = now.isoformat(timespec="seconds")
     today = now.strftime("%Y-%m-%d")
     dirty = False
+    auto_events = []  # mirrored into the GL Events workbook as the Excel record
 
     for row in gl_summary.to_dict(orient="records"):
         icb = row["ICB"]
@@ -302,18 +383,28 @@ def update_history(gl_summary: pd.DataFrame) -> dict:
                 and state["latest_published"]
                 else today
             )
+            version = len(versions) + 1
             versions.append({
-                "version": len(versions) + 1,
+                "version": version,
                 "detected_at": now_iso,
                 "effective_date": eff,
                 "state": state,
                 "changes": changes,
+            })
+            auto_events.append({
+                "icb": icb,
+                "date": eff,
+                "category": _change_category(changes),
+                "description": _change_description(version, changes),
+                "published": state["latest_published"],
+                "review": state["next_review"],
             })
             dirty = True
 
     if dirty:
         with open(HISTORY_JSON, "w") as fh:
             json.dump(history, fh, indent=1)
+    record_auto_events(auto_events)
     return history
 
 

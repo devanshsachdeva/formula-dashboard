@@ -4,31 +4,55 @@
 Chart.register(ChartDataLabels);
 Chart.defaults.set("plugins.datalabels", { display: false });
 
+// Manufacturer colour families:
+//   Nutricia -> purples · Nestlé -> greys · MJN -> Nutramigen blues + Puramino
+//   orange · Abbott -> green · Other -> tan
 const BRAND_COLORS = {
-  NEOCATE: "#2563eb",
-  PEPTI: "#0ea5e9",
-  NUTRAMIGEN: "#dc2626",
-  PURAMINO: "#f97316",
-  ALTHERA: "#16a34a",
-  ALFAMINO: "#84cc16",
-  ARIZE: "#a855f7",
-  OTHER: "#94a3b8",
+  NEOCATE: "#9333ea",    // Nutricia — warm purple (kept away from blue)
+  PEPTI: "#d946ef",      // Nutricia — magenta
+  NUTRAMIGEN: "#1d4ed8", // MJN — royal blue
+  PURAMINO: "#f97316",   // MJN — orange
+  ALTHERA: "#475569",    // Nestlé — dark grey
+  ALFAMINO: "#94a3b8",   // Nestlé — light grey
+  ARIZE: "#16a34a",      // Abbott — green
+  OTHER: "#a16207",      // tan
 };
 const MFR_COLORS = {
-  NUTRICIA: "#2563eb",
-  MJN: "#dc2626",
-  NESTLE: "#16a34a",
-  ABBOTT: "#a855f7",
-  OTHER: "#94a3b8",
+  NUTRICIA: "#9333ea",
+  NESTLE: "#6b7280",
+  MJN: "#1d4ed8",
+  ABBOTT: "#16a34a",
+  OTHER: "#a16207",
 };
 const CAT_COLORS = { EHF: "#2563eb", AAF: "#f97316", RICE: "#a855f7" };
 const FALLBACK = ["#64748b", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
-// distinct palette for the ~18 client-line products, assigned by volume rank
-const PRODUCT_PALETTE = [
-  "#2563eb", "#dc2626", "#16a34a", "#f97316", "#a855f7", "#0ea5e9",
-  "#84cc16", "#e11d48", "#0891b2", "#f59e0b", "#7c3aed", "#10b981",
-  "#ec4899", "#65a30d", "#b45309", "#14b8a6", "#8b5cf6", "#64748b",
-];
+// client-line products: shades within each manufacturer family
+const PRODUCT_COLORS = {
+  // Nutricia — Neocate warm purples (dark -> light), no blue-violets
+  "NEOCATE LCP": "#7e22ce",
+  "NEOCATE SYNEO": "#9333ea",
+  "NEOCATE JUNIOR": "#a855f7",
+  "NEOCATE SPOON": "#c084fc",
+  "NEOCATE ADVANCE": "#d8b4fe",
+  // Nutricia — Pepti magentas (dark -> light)
+  "PEPTI 1": "#a21caf",
+  "PEPTI 2": "#d946ef",
+  "PEPTI SYNEO": "#e879f9",
+  "PEPTI JUNIOR": "#f5d0fe",
+  // MJN — Nutramigen cool blues + Puramino orange
+  "NUTRAMIGEN 1-MJN": "#1e3a8a",
+  "NUTRAMIGEN 2-MJN": "#3b82f6",
+  "NUTRAMIGEN 3-MJN": "#93c5fd",
+  "PURAMINO": "#f97316",
+  // Nestlé greys
+  "ALTHERA": "#475569",
+  "ALFAMINO": "#94a3b8",
+  // Abbott green
+  "SIMILAC ARIZE": "#16a34a",
+  // Other — tans
+  "PREGESTIMIL": "#a16207",
+  "ELECARE": "#ca8a04",
+};
 const FAR_FUTURE = "2049-01-01"; // 2050-01-01 entries are "no date" placeholders
 
 let DATA = null;            // full payload from /api/data
@@ -75,13 +99,17 @@ function esc(s) {
 
 // ---------- lookup maps ----------
 
-let ICB_REGION = new Map(); // icb -> region
-let HDM_ICBS = new Map();   // hdm -> Set(icb)
+let ICB_REGION = new Map();   // icb -> region
+let HDM_ICBS = new Map();     // hdm -> Set(icb)
+let PRODUCT_BRAND = new Map(); // client-line product -> brand
 
 function buildMaps() {
   ICB_REGION = new Map();
-  for (const r of DATA.performance)
+  PRODUCT_BRAND = new Map();
+  for (const r of DATA.performance) {
     if (!ICB_REGION.has(r.icb)) ICB_REGION.set(r.icb, r.region);
+    if (!PRODUCT_BRAND.has(r.product)) PRODUCT_BRAND.set(r.product, r.brand);
+  }
   HDM_ICBS = new Map();
   for (const g of DATA.gl_detail) {
     const h = (g.HDM || "").trim();
@@ -111,6 +139,7 @@ function icbListForDropdown() {
 // ---------- multi-select dropdown component ----------
 
 const MSEL_DEFS = [
+  { key: "category", placeholder: "All categories" },
   { key: "region", placeholder: "All regions" },
   { key: "icb", placeholder: "All ICBs" },
   { key: "manufacturer", placeholder: "All manufacturers" },
@@ -201,9 +230,66 @@ function initMsels() {
   });
 }
 
-function onFilterChange(key) {
-  if (key === "region" || key === "hdm") setMselOptions("icb", icbListForDropdown());
+function onFilterChange() {
+  // cross-filtering + re-render are handled centrally in render()
   render();
+}
+
+// ---------- slicer cross-filtering ----------
+// Every slicer constrains the others: a slicer's available options are the
+// values still reachable under all the OTHER slicers' current selections
+// (its own selection is ignored so you can always widen it). Selected values
+// are never pruned, so choices stick even if they'd yield no rows.
+
+const ALL_SLICERS = ["category", "region", "icb", "manufacturer", "brand", "hdm"];
+let _lastSelSig = null;
+
+function selSignature() {
+  return ALL_SLICERS.map((k) => [...SEL[k]].sort().join(",")).join("|");
+}
+
+/** Performance rows matching every slicer EXCEPT `excludeKey`. */
+function rowsMatching(excludeKey) {
+  const useHdm = excludeKey !== "hdm" && SEL.hdm.size;
+  const hu = useHdm ? hdmICBUnion() : null;
+  return DATA.performance.filter(
+    (r) =>
+      (excludeKey === "category" || !SEL.category.size || SEL.category.has(r.category)) &&
+      (excludeKey === "region" || !SEL.region.size || SEL.region.has(r.region)) &&
+      (excludeKey === "icb" || !SEL.icb.size || SEL.icb.has(r.icb)) &&
+      (excludeKey === "manufacturer" || !SEL.manufacturer.size || SEL.manufacturer.has(r.manufacturer)) &&
+      (excludeKey === "brand" || !SEL.brand.size || SEL.brand.has(r.brand)) &&
+      (!hu || hu.has(r.icb))
+  );
+}
+
+function availableOptions(key) {
+  const rows = rowsMatching(key);
+  if (key === "hdm") {
+    const icbs = new Set(rows.map((r) => r.icb));
+    return [...HDM_ICBS.keys()].filter((h) => {
+      for (const i of HDM_ICBS.get(h)) if (icbs.has(i)) return true;
+      return false;
+    });
+  }
+  return [...new Set(rows.map((r) => r[key]))];
+}
+
+/** Rebuild every slicer's option list from the current cross-filter, unless
+ *  nothing changed. Skips the panel the user currently has open (its own
+ *  option list doesn't depend on its own selection, so it can't be stale). */
+function refreshSlicersIfChanged() {
+  const sig = selSignature();
+  if (sig === _lastSelSig) return;
+  _lastSelSig = sig;
+  const openPanel = document.querySelector(".msel-panel:not([hidden])");
+  const openKey = openPanel ? openPanel.closest(".msel").id.replace("ms-", "") : null;
+  for (const key of ALL_SLICERS) {
+    if (key === openKey) continue;
+    const avail = availableOptions(key);
+    // union with current selection so a chosen value is never pruned
+    setMselOptions(key, [...new Set([...avail, ...SEL[key]])].sort());
+  }
 }
 
 /** Select exactly one ICB (drill-down) or clear if it is already the sole selection. */
@@ -224,6 +310,7 @@ async function loadData() {
   if (!res.ok) throw new Error("Failed to load /api/data: " + res.status);
   DATA = await res.json();
   buildMaps();
+  _lastSelSig = null; // force slicer option lists to rebuild against fresh data
   $("generated-at").textContent = "Data built " + DATA.generated_at.replace("T", " ");
 }
 
@@ -280,7 +367,7 @@ function windowLabel(win) {
 
 // ---------- filtering ----------
 
-function rowsFor(win, { ignoreCategory = false } = {}) {
+function rowsFor(win, { ignoreCategory = false, ignoreBrandDims = false } = {}) {
   const set = new Set(win);
   const hu = hdmICBUnion();
   return DATA.performance.filter(
@@ -290,8 +377,9 @@ function rowsFor(win, { ignoreCategory = false } = {}) {
       (!SEL.icb.size || SEL.icb.has(r.icb)) &&
       (!hu || hu.has(r.icb)) &&
       (ignoreCategory || !SEL.category.size || SEL.category.has(r.category)) &&
-      (!SEL.manufacturer.size || SEL.manufacturer.has(r.manufacturer)) &&
-      (!SEL.brand.size || SEL.brand.has(r.brand))
+      (ignoreBrandDims ||
+        ((!SEL.manufacturer.size || SEL.manufacturer.has(r.manufacturer)) &&
+          (!SEL.brand.size || SEL.brand.has(r.brand))))
   );
 }
 
@@ -326,7 +414,7 @@ function quarterKey(iso) {
   return iso.slice(0, 4) + "-Q" + (Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1);
 }
 function colorFor(key, mode, i) {
-  if (mode === "product") return PRODUCT_PALETTE[i % PRODUCT_PALETTE.length];
+  if (mode === "product") return PRODUCT_COLORS[key] || FALLBACK[i % FALLBACK.length];
   const table = mode === "manufacturer" ? MFR_COLORS : mode === "category" ? CAT_COLORS : BRAND_COLORS;
   return table[key] || FALLBACK[i % FALLBACK.length];
 }
@@ -350,6 +438,8 @@ function renderCatCards(win) {
   const metric = singles.metric();
   const cur = rowsFor(win.cur, { ignoreCategory: true });
   const prev = rowsFor(win.prev, { ignoreCategory: true });
+  // MS% denominator: whole category market, ignoring brand/manufacturer filters
+  const curMarket = rowsFor(win.cur, { ignoreCategory: true, ignoreBrandDims: true });
 
   $("period-caption").textContent =
     `${win.label}: ${windowLabel(win.cur)}` +
@@ -370,7 +460,10 @@ function renderCatCards(win) {
 
     const byBrand = [...sumBy(curRows, (r) => r.brand, metric).entries()].sort((a, b) => b[1] - a[1]);
     const top = byBrand[0];
-    const ms = top && curTotal ? ((top[1] / curTotal) * 100).toFixed(1) : null;
+    const marketTotal = curMarket
+      .filter((r) => r.category === cat)
+      .reduce((s, r) => s + r[metric], 0);
+    const ms = top && marketTotal ? ((top[1] / marketTotal) * 100).toFixed(1) : null;
     const active = SEL.category.has(cat);
 
     const card = document.createElement("div");
@@ -587,12 +680,17 @@ function renderTrend(rows, win) {
     .map(([k]) => k);
 
   const cell = new Map();
-  const monthTotal = new Map();
   for (const r of rows) {
     const k = r.date + " " + keyFn(r);
     cell.set(k, (cell.get(k) || 0) + r[metric]);
-    monthTotal.set(r.date, (monthTotal.get(r.date) || 0) + r[metric]);
   }
+  // MS% denominator = the whole market in scope (region/ICB/HDM/category/period),
+  // ignoring brand & manufacturer filters — so filtering to one brand shows its
+  // true share instead of a flat 100% of itself.
+  const monthTotal = new Map();
+  const denomRows = isMS ? rowsFor(win.cur, { ignoreBrandDims: true }) : rows;
+  for (const r of denomRows)
+    monthTotal.set(r.date, (monthTotal.get(r.date) || 0) + r[metric]);
 
   const datasets = keys.map((k, i) => ({
     label: k,
@@ -760,6 +858,16 @@ function renderTopICBs(rows) {
           data: top.map(([, v]) => v),
           backgroundColor: "#2563eb",
           borderRadius: 4,
+          datalabels: {
+            display: true,
+            anchor: "end",
+            align: "end",
+            offset: 2,
+            clamp: true,
+            color: "#1a2333",
+            font: { size: 10, weight: "700" },
+            formatter: (v) => fmtNum(v),
+          },
         },
       ],
     },
@@ -767,6 +875,7 @@ function renderTopICBs(rows) {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { right: 44 } },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: (c) => " " + fmtMetric(c.parsed.x) } },
@@ -922,6 +1031,208 @@ function exclusiveSpans(icb, cat) {
 }
 
 let exclSort = { key: "ms", dir: 1 }; // lowest MS% first — worst conversion on top
+let exclProduct = null;     // selected exclusive first-line brand, e.g. "NUTRAMIGEN"
+let exclDim = "brand";      // brand | product — the "even with products" level
+let exclTrendValue = "ms";  // ms | actual
+
+/** Brands that are an exclusive 1st-line somewhere (within the region/HDM/ICB
+ *  filters) -> { cat, icbs:Set(icb) }. Drives the First-line product filter. */
+function exclusiveFirstLineBrands() {
+  const vis = visibleICBs();
+  const map = new Map();
+  for (const g of DATA.guidelines) {
+    if (!vis.has(g.ICB)) continue;
+    for (const cat of ["EHF", "AAF"]) {
+      const status = ((cat === "EHF" ? g.ehf_gl : g.aaf_gl) || "").trim().toUpperCase();
+      if (status !== "EXCLUSIVE") continue;
+      const first = cat === "EHF" ? g.ehf_first : g.aaf_first;
+      for (const b of brandsFromProduct(first)) {
+        if (!map.has(b)) map.set(b, { cat, icbs: new Set() });
+        map.get(b).icbs.add(g.ICB);
+      }
+    }
+  }
+  return map;
+}
+
+/** Aggregated guideline publish / change markers across a set of ICBs.
+ *  Counts unique ICBs per month (the GL workbook has one row per CCG, so an
+ *  ICB with 5 CCGs must still count once). */
+function exclMarks(scope, months) {
+  const idx = new Map(months.map((m, i) => [m.slice(0, 7), i]));
+  const byMonth = new Map(); // ym -> Set(icb)
+  const add = (ym, icb) => {
+    if (!idx.has(ym)) return;
+    if (!byMonth.has(ym)) byMonth.set(ym, new Set());
+    byMonth.get(ym).add(icb);
+  };
+  for (const g of DATA.gl_detail) {
+    if (!scope.has(g.ICB) || !g["Latest Published Date"]) continue;
+    add(g["Latest Published Date"].slice(0, 7), g.ICB);
+  }
+  for (const [icb, vers] of Object.entries(DATA.gl_history || {})) {
+    if (!scope.has(icb)) continue;
+    for (const v of vers)
+      if (v.changes.length) add(v.effective_date.slice(0, 7), icb);
+  }
+  return [...byMonth.entries()].map(([ym, icbs]) => ({
+    index: idx.get(ym),
+    label: icbs.size > 1 ? `GL ×${icbs.size} ICBs` : "GL update",
+    icbs: [...icbs].sort(),
+  }));
+}
+
+function renderExclusiveTrend() {
+  const brandsExcl = exclusiveFirstLineBrands();
+
+  // (re)populate the First-line product filter (cross-filtered by global slicers)
+  const sel = $("excl-product");
+  const entries = [...brandsExcl.entries()].sort(
+    (a, b) => a[1].cat.localeCompare(b[1].cat) || b[1].icbs.size - a[1].icbs.size
+  );
+  sel.innerHTML = entries
+    .map(
+      ([b, info]) =>
+        `<option value="${esc(b)}">${esc(b)} — ${info.cat} exclusive (${info.icbs.size} ICB${info.icbs.size === 1 ? "" : "s"})</option>`
+    )
+    .join("");
+  if (!brandsExcl.has(exclProduct)) exclProduct = entries.length ? entries[0][0] : null;
+  if (exclProduct) sel.value = exclProduct;
+
+  if (!exclProduct) {
+    if (charts["chart-excl-trend"]) { charts["chart-excl-trend"].destroy(); delete charts["chart-excl-trend"]; }
+    $("excl-trend-hint").textContent = "";
+    $("excl-trend-caption").textContent = "No exclusive first-line products under the current filters.";
+    return;
+  }
+
+  const { cat, icbs: scope } = brandsExcl.get(exclProduct);
+  const isMS = exclTrendValue === "ms";
+  const isProd = exclDim === "product";
+  const metric = singles.metric();
+  const months = DATA.meta.months;
+
+  const keyFn = isProd ? (r) => r.product : (r) => r.brand;
+  // which line(s) belong to the selected first-line brand (highlighted + compliance)
+  const selectedKeys = isProd
+    ? new Set(DATA.meta.products.filter((p) => PRODUCT_BRAND.get(p) === exclProduct))
+    : new Set([exclProduct]);
+
+  const rows = DATA.performance.filter((r) => r.category === cat && scope.has(r.icb));
+
+  $("excl-trend-hint").textContent =
+    `(${cat} ${isProd ? "product" : "brand"} ${isMS ? "share" : "volumes"} in the ${scope.size} ICB${scope.size === 1 ? "" : "s"} where ${exclProduct} is the exclusive 1st-line)`;
+
+  const cell = new Map();       // "month key" -> metric
+  const monthTotal = new Map(); // month -> category total
+  const compNum = new Map();    // month -> selected-brand volume (compliance numerator)
+  for (const r of rows) {
+    const k = keyFn(r);
+    cell.set(r.date + " " + k, (cell.get(r.date + " " + k) || 0) + r[metric]);
+    monthTotal.set(r.date, (monthTotal.get(r.date) || 0) + r[metric]);
+    if (r.brand === exclProduct) compNum.set(r.date, (compNum.get(r.date) || 0) + r[metric]);
+  }
+
+  const keys = [...sumBy(rows, keyFn, metric).entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k]) => k);
+
+  const datasets = keys.map((k, i) => {
+    const hi = selectedKeys.has(k);
+    const col = colorFor(k, isProd ? "product" : "brand", i);
+    return {
+      label: k,
+      data: months.map((m) => {
+        const v = cell.get(m + " " + k) || 0;
+        if (!isMS) return v;
+        const t = monthTotal.get(m) || 0;
+        return t ? (v / t) * 100 : 0;
+      }),
+      borderColor: col,
+      backgroundColor: col,
+      fill: false,
+      tension: 0.25,
+      pointRadius: 0,
+      pointHitRadius: 8,
+      borderWidth: hi ? 3.5 : 1.5,
+      // label the focus brand's line(s); in brand mode (few lines) label all
+      datalabels: !isProd || hi ? pointLabels(col, isMS) : { display: false },
+    };
+  });
+
+  // compliance overlay: selected brand's aggregate share (MS% + product mode,
+  // where the brand is split across client lines so an aggregate line helps)
+  if (isMS && isProd) {
+    datasets.unshift({
+      label: `${exclProduct} (total, compliance)`,
+      data: months.map((m) => {
+        const t = monthTotal.get(m) || 0;
+        return t ? ((compNum.get(m) || 0) / t) * 100 : 0;
+      }),
+      borderColor: "#111827",
+      backgroundColor: "#111827",
+      borderDash: [6, 3],
+      borderWidth: 3,
+      fill: false,
+      tension: 0.25,
+      pointRadius: 0,
+      pointHitRadius: 8,
+      datalabels: { display: false },
+    });
+  }
+
+  // headline compliance = selected brand's share over the whole window
+  const totAll = [...monthTotal.values()].reduce((s, v) => s + v, 0);
+  const totBrand = [...compNum.values()].reduce((s, v) => s + v, 0);
+  const compPct = totAll ? (totBrand / totAll) * 100 : 0;
+  $("excl-trend-caption").innerHTML =
+    `Scope: <strong>${scope.size} ICB${scope.size === 1 ? "" : "s"}</strong> where <strong>${esc(exclProduct)}</strong> is the exclusive ${cat} 1st-line. ` +
+    `Over the full window it holds <strong>${compPct.toFixed(1)}% MS%</strong> of the ${cat} market in those ICBs` +
+    (compPct < 50 ? ` — competitors out-prescribe the mandated product.` : `.`) +
+    (isProd && isMS ? ` Dashed line = ${esc(exclProduct)} total (all its client lines).` : ``) +
+    ` Pink dashed verticals mark guideline publish / change months.`;
+
+  const marks = exclMarks(scope, months);
+  const marksByIndex = new Map(marks.map((m) => [m.index, m]));
+
+  upsertChart("chart-excl-trend", {
+    type: "line",
+    data: { labels: months.map(monthLabel), datasets },
+    plugins: [glMarkerPlugin],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 14 } },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        glMarkers: { marks },
+        legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label: (c) =>
+              ` ${c.dataset.label}: ` +
+              (isMS ? "MS% " + c.parsed.y.toFixed(1) + "%" : fmtMetric(c.parsed.y)),
+            // months with a GL marker also list which ICBs updated
+            footer: (items) => {
+              const m = items.length ? marksByIndex.get(items[0].dataIndex) : null;
+              if (!m) return "";
+              return ["Guideline updated:", ...m.icbs.map((i) => "• " + i)];
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grace: "8%",
+          ticks: { callback: (v) => (isMS ? v + "%" : fmtMetric(v)) },
+        },
+        x: { grid: { display: false } },
+      },
+    },
+  });
+}
+
 
 function renderExclTable() {
   const metric = singles.metric();
@@ -1041,7 +1352,12 @@ function trackerIntervals(icb) {
   return starts.map((s, i) => ({
     start: s,
     end: i + 1 < starts.length ? starts[i + 1] : null, // exclusive
-    label: i === 0 ? "Before " + monthLabel(starts[1] || s) : bounds.get(s),
+    label:
+      i === 0
+        ? cuts.length
+          ? "Before " + monthLabel(starts[1])
+          : "Full data range — no guideline changes in this window"
+        : bounds.get(s),
     name:
       monthLabel(s) +
       " – " +
@@ -1083,6 +1399,104 @@ function deltaHTML(cur, prev, unit = "") {
   return `<span class="delta ${cls}">${arrow}${Math.abs(d).toFixed(1)}${unit}</span>`;
 }
 
+// brand -> manufacturer, for naming who exclusivity was won from / lost to
+const BRAND_MFR = {
+  NEOCATE: "Nutricia", PEPTI: "Nutricia",
+  NUTRAMIGEN: "MJN", PURAMINO: "MJN",
+  ALTHERA: "Nestlé", ALFAMINO: "Nestlé",
+  ARIZE: "Abbott",
+};
+const MJN_BRANDS = new Set(["NUTRAMIGEN", "PURAMINO"]);
+
+/** Exclusive wins/losses for MJN products, derived from the tracked history:
+ *  a WIN when a change makes an MJN product the exclusive 1st line, a LOSS
+ *  when MJN-exclusive stops being so — with the counterparty in each case. */
+function mjnExclusiveMoves() {
+  const moves = [];
+  const isMJNExcl = (status, product) =>
+    (status || "").trim().toUpperCase() === "EXCLUSIVE" &&
+    brandsFromProduct(product).some((b) => MJN_BRANDS.has(b));
+  const sideLabel = (status, product) => {
+    const s = (status || "—").trim();
+    if (s.toUpperCase() === "EXCLUSIVE") {
+      const mfrs = [...new Set(brandsFromProduct(product).map((b) => BRAND_MFR[b] || b))];
+      return `${product || "—"}${mfrs.length ? " (" + mfrs.join("/") + ")" : ""}`;
+    }
+    return s + (product ? ": " + product : "");
+  };
+
+  for (const [icb, versions] of Object.entries(DATA.gl_history || {})) {
+    for (let i = 1; i < versions.length; i++) {
+      const prev = versions[i - 1].state, cur = versions[i].state, v = versions[i];
+      for (const cat of ["EHF", "AAF"]) {
+        const oS = cat === "EHF" ? prev.ehf_gl : prev.aaf_gl;
+        const oP = cat === "EHF" ? prev.ehf_first : prev.aaf_first;
+        const nS = cat === "EHF" ? cur.ehf_gl : cur.aaf_gl;
+        const nP = cat === "EHF" ? cur.ehf_first : cur.aaf_first;
+        if (oS === nS && oP === nP) continue;
+        const was = isMJNExcl(oS, oP), now = isMJNExcl(nS, nP);
+        if (was === now) continue;
+        moves.push({
+          icb, cat,
+          date: v.effective_date,
+          version: v.version,
+          type: now ? "WIN" : "LOSS",
+          product: now ? nP : oP,
+          counterparty: now ? sideLabel(oS, oP) : sideLabel(nS, nP),
+        });
+      }
+    }
+  }
+  moves.sort((a, b) => (a.date < b.date ? 1 : -1));
+  return moves;
+}
+
+function mjnMovesHTML() {
+  const icbs = visibleICBs();
+  const moves = mjnExclusiveMoves().filter(
+    (m) => icbs.has(m.icb) && (!SEL.category.size || SEL.category.has(m.cat))
+  );
+  const wins = moves.filter((m) => m.type === "WIN").length;
+  const losses = moves.length - wins;
+
+  const body = moves.length
+    ? `<div class="table-wrap" style="max-height:280px">
+        <table>
+          <thead><tr>
+            <th>Date</th><th>ICB / APC</th><th>Category</th><th></th>
+            <th>MJN product</th><th>Won from / lost to</th>
+          </tr></thead>
+          <tbody>
+            ${moves
+              .map(
+                (m) => `
+              <tr data-icb="${esc(m.icb)}">
+                <td>${m.date}</td>
+                <td class="icb-cell">${esc(m.icb)}</td>
+                <td><span class="badge all">${m.cat}</span></td>
+                <td><span class="badge ${m.type === "WIN" ? "exclusive" : "overdue"}">${m.type}</span></td>
+                <td><strong>${esc(m.product || "—")}</strong></td>
+                <td>${m.type === "WIN" ? "won from" : "lost to"} <strong>${esc(m.counterparty)}</strong></td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>`
+    : `<p class="hint">No exclusive wins or losses recorded yet — this fills in automatically as
+       guideline changes are detected in the base GL workbook (tracking began ${
+         Object.values(DATA.gl_history || {})[0]?.[0]?.detected_at?.slice(0, 10) || "recently"
+       }).</p>`;
+
+  return `
+    <div class="mjn-moves">
+      <h3>MJN exclusive wins &amp; losses
+        <span class="hint">${moves.length ? `${wins} win${wins === 1 ? "" : "s"} · ${losses} loss${losses === 1 ? "" : "es"}` : "(from tracked guideline changes)"}</span>
+      </h3>
+      ${body}
+    </div>`;
+}
+
 function renderTrackerSummary() {
   const icbs = visibleICBs();
   const hist = DATA.gl_history || {};
@@ -1106,6 +1520,7 @@ function renderTrackerSummary() {
   $("tracker-hint").textContent =
     "— changes detected since tracking began; click an ICB to see its versions and interval performance";
   $("tracker-body").innerHTML = `
+    ${mjnMovesHTML()}
     <div class="table-wrap">
       <table class="tracker-summary">
         <thead><tr>
@@ -1142,7 +1557,7 @@ function renderTrackerSummary() {
     </div>`;
 
   $("tracker-body")
-    .querySelectorAll("tbody tr")
+    .querySelectorAll("tbody tr[data-icb]")
     .forEach((tr) =>
       tr.addEventListener("click", () => {
         drillToICB(tr.dataset.icb);
@@ -1168,10 +1583,18 @@ function renderTrackerDetail(icb) {
   const itemHTML = (it) => {
     if (it.kind === "event") {
       const e = it.e;
+      const dates =
+        e.published || e.review
+          ? `<div class="state-line hint">${[
+              e.published ? "Published → " + e.published : "",
+              e.review ? "next review → " + e.review : "",
+            ].filter(Boolean).join(" · ")}</div>`
+          : "";
       return `
       <div class="version-item event">
         <div class="version-head">Event${e.category !== "ALL" ? " — " + e.category : ""}<span class="version-date">${e.date}</span></div>
         <div class="state-line">${esc(e.description)}</div>
+        ${dates}
       </div>`;
     }
     const v = it.v;
@@ -1237,22 +1660,14 @@ function renderTrackerDetail(icb) {
          .join("")}</div>`
     : "";
 
-  // add-interval form
-  const formHTML = `
-    <form id="event-form" class="event-form">
-      <h3>Add interval marker</h3>
-      <div class="event-form-row">
-        <input type="date" id="ev-date" required title="Effective date of the change/event">
-        <select id="ev-cat">
-          <option value="ALL">All categories</option>
-          ${cats.map((c) => `<option value="${c}">${c}</option>`).join("")}
-        </select>
-        <input type="text" id="ev-desc" placeholder="What changed? e.g. 'EHF 1st line switched to Pepti'" required>
-        <button type="submit">Add</button>
-      </div>
-      <p class="hint">Saved to <code>data/GL Events.xlsx</code> — you can also add/edit rows there directly in Excel.
-      Past dates split the intervals below; future dates appear under Upcoming.</p>
-    </form>`;
+  // interval markers are maintained in the events workbook, not in the UI
+  const sourceNoteHTML = `
+    <p class="hint" style="margin:0 0 14px">
+      Interval markers come from <code>data/GL Events.xlsx</code> — add a row there
+      (ICB | Date | Category | Description | … | Published Date | Next Review Date) and reload.
+      Past dates split the intervals below; future dates appear under Upcoming.
+      Auto-detected guideline changes are recorded in the same sheet with their new publish/review dates.
+    </p>`;
 
   // interval performance table
   const stats = intervals.map((iv) => ({ iv, s: intervalStats(icb, iv.start, iv.end) }));
@@ -1314,7 +1729,7 @@ function renderTrackerDetail(icb) {
       : "";
   $("tracker-hint").textContent = "— " + icb;
   $("tracker-body").innerHTML = `
-    ${formHTML}
+    ${sourceNoteHTML}
     <div class="tracker-grid">
       <div class="tracker-col">
         <h3>Guideline version history &amp; events</h3>
@@ -1348,35 +1763,6 @@ function renderTrackerDetail(icb) {
       renderIntervalExplorer(icb, explorerCategory());
     })
   );
-
-  $("event-form").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const btn = ev.target.querySelector("button");
-    btn.disabled = true;
-    btn.textContent = "Adding…";
-    try {
-      const res = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          icb,
-          date: $("ev-date").value,
-          category: $("ev-cat").value,
-          description: $("ev-desc").value.trim(),
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "HTTP " + res.status);
-      }
-      await loadData();
-      render();
-    } catch (e) {
-      alert("Could not add event: " + e.message);
-      btn.disabled = false;
-      btn.textContent = "Add";
-    }
-  });
 
   renderIntervalExplorer(icb, explorerCat);
 }
@@ -1442,7 +1828,7 @@ function renderIntervalExplorer(icb, cat) {
       scales: {
         y: {
           beginAtZero: true,
-          max: isMS ? 100 : undefined,
+          grace: "8%", // headroom for point labels; max auto-fits the data
           ticks: { callback: (v) => (isMS ? v + "%" : fmtMetric(v)) },
         },
         x: { grid: { display: false } },
@@ -1557,6 +1943,9 @@ function saveFilters() {
       trendDim,
       trendValue,
       explorerMode,
+      exclProduct,
+      exclDim,
+      exclTrendValue,
     };
     localStorage.setItem("dashboard-filters", JSON.stringify(state));
   } catch (_) { /* private mode etc. — ignore */ }
@@ -1578,6 +1967,9 @@ function restoreFilters() {
     if (!state.trendDim && state.trendMode)
       state.trendMode === "ms" ? (trendValue = "ms") : (trendDim = state.trendMode);
     if (state.explorerMode) explorerMode = state.explorerMode;
+    if (state.exclProduct) exclProduct = state.exclProduct;
+    if (state.exclDim) exclDim = state.exclDim;
+    if (state.exclTrendValue) exclTrendValue = state.exclTrendValue;
 
     document.querySelectorAll(".custom-range").forEach((el) => (el.hidden = $("f-period").value !== "custom"));
     document
@@ -1586,8 +1978,15 @@ function restoreFilters() {
     document
       .querySelectorAll("#trend-value-toggle button")
       .forEach((b) => b.classList.toggle("active", b.dataset.mode === trendValue));
+    document
+      .querySelectorAll("#excl-dim-toggle button")
+      .forEach((b) => b.classList.toggle("active", b.dataset.dim === exclDim));
+    document
+      .querySelectorAll("#excl-val-toggle button")
+      .forEach((b) => b.classList.toggle("active", b.dataset.mode === exclTrendValue));
 
     // rebuild option lists so pruning + checkbox state reflect the restored SEL
+    setMselOptions("category", DATA.meta.categories);
     setMselOptions("region", DATA.meta.regions);
     setMselOptions("hdm", [...HDM_ICBS.keys()].sort());
     setMselOptions("manufacturer", DATA.meta.manufacturers);
@@ -1600,6 +1999,7 @@ function restoreFilters() {
 
 function setupFilters() {
   initMsels();
+  setMselOptions("category", DATA.meta.categories);
   setMselOptions("region", DATA.meta.regions);
   setMselOptions("icb", DATA.meta.icbs);
   setMselOptions("manufacturer", DATA.meta.manufacturers);
@@ -1687,6 +2087,30 @@ function setupFilters() {
     })
   );
 
+  $("excl-product").addEventListener("change", () => {
+    exclProduct = $("excl-product").value;
+    saveFilters();
+    renderExclusiveTrend();
+  });
+  document.querySelectorAll("#excl-dim-toggle button").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#excl-dim-toggle button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      exclDim = btn.dataset.dim;
+      saveFilters();
+      renderExclusiveTrend();
+    })
+  );
+  document.querySelectorAll("#excl-val-toggle button").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#excl-val-toggle button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      exclTrendValue = btn.dataset.mode;
+      saveFilters();
+      renderExclusiveTrend();
+    })
+  );
+
   $("tracker-back").addEventListener("click", () => {
     SEL.icb.clear();
     updateMselUI("icb");
@@ -1700,6 +2124,8 @@ function setupFilters() {
 
 function render() {
   saveFilters();
+  refreshSlicersIfChanged();  // cross-filter every slicer off the others
+  updateMselUI("category"); // cards and the Category dropdown share SEL.category
   const win = periodWindows();
   const rows = rowsFor(win.cur);
   renderCatCards(win);
@@ -1708,8 +2134,10 @@ function render() {
   renderDonut("chart-share", rows, "brand", "brand");
   renderDonut("chart-mfr", rows, "manufacturer", "manufacturer");
   renderTopICBs(rows);
-  renderGLChart(rows);
-  renderGLTimeline();
+  // temporarily hidden along with their cards in index.html — uncomment both to restore
+  // renderGLChart(rows);
+  // renderGLTimeline();
+  renderExclusiveTrend();
   renderExclTable();
   renderTracker();
   renderGLTable(win);
