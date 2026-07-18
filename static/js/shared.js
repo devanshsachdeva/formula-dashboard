@@ -238,6 +238,7 @@ const SEL = {
   ieproduct: new Set(),
   ieprovince: new Set(),
   iecounty: new Set(),
+  iebrick: new Set(),
   ieminibrick: new Set(),
   ieplan: new Set(),
 };
@@ -331,6 +332,7 @@ const MSEL_DEFS = [
   { key: "ieproduct", placeholder: "All products" },
   { key: "ieprovince", placeholder: "All provinces" },
   { key: "iecounty", placeholder: "All counties" },
+  { key: "iebrick", placeholder: "All bricks" },
   { key: "ieminibrick", placeholder: "All mini bricks" },
   { key: "ieplan", placeholder: "All account plans" },
 ];

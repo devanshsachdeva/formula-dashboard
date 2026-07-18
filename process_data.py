@@ -64,10 +64,10 @@ def load_hdm_structure() -> dict:
 # Ireland monthly sell-out data (optional — the Ireland page shows a
 # placeholder when the file is absent).
 IE_XLSX = os.environ.get("IE_XLSX", os.path.join(DATA_DIR, "Ireland Data.xlsx"))
-# ID -> Account Plan mapping. The ID is the numeric 4-char prefix of the
-# Mini Brick column (e.g. "0001"). A dummy file is generated on first run —
-# replace it with the real mapping (same columns: ID | ACCOUNT PLAN) any time.
-IE_PLANS_XLSX = os.environ.get("IE_PLANS_XLSX", os.path.join(DATA_DIR, "Ireland Account Plans.xlsx"))
+# Brick ID -> Account Plan mapping (real file). The join key is the numeric
+# brick ID — the 4-char prefix of the Mini Brick column ("0001" -> 1) — matched
+# against this file's `Id` column. Columns: Id | Account Plan.
+IE_PLANS_XLSX = os.environ.get("IE_PLANS_XLSX", os.path.join(DATA_DIR, "Account Plans Ireland.xlsx"))
 
 # Optional export target for `python3 process_data.py` (the server does not use it)
 OUT_JSON = os.path.join(DATA_DIR, "dashboard_data.json")
@@ -276,28 +276,8 @@ def _ie_brand_mfr(product: str) -> tuple:
     return ("OTHER", "OTHER")
 
 
-def ensure_ie_plans_file(ids: list) -> None:
-    """Create a DUMMY ID -> ACCOUNT PLAN workbook so the merge pipeline works
-    end-to-end. Replace with the real file (same two columns) when available;
-    it is only generated when missing, never overwritten."""
-    if os.path.exists(IE_PLANS_XLSX):
-        return
-    from openpyxl import Workbook
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Account Plans"
-    ws.append(["ID", "ACCOUNT PLAN"])
-    dummy_plans = ["Gold Plan", "Silver Plan", "Bronze Plan", "No Plan"]
-    for i, bid in enumerate(sorted(ids)):
-        ws.append([bid, dummy_plans[i % len(dummy_plans)]])
-    ws.column_dimensions["A"].width = 10
-    ws.column_dimensions["B"].width = 16
-    wb.save(IE_PLANS_XLSX)
-
-
 def load_ie_plans() -> dict:
-    """ID (4-digit string) -> Account Plan name."""
+    """Brick ID (int) -> Account Plan name, from the Id | Account Plan file."""
     if not os.path.exists(IE_PLANS_XLSX):
         return {}
     df = pd.read_excel(IE_PLANS_XLSX)
@@ -306,8 +286,11 @@ def load_ie_plans() -> dict:
         return {}
     out = {}
     for _, r in df.dropna(subset=["ID", "ACCOUNT PLAN"]).iterrows():
-        # IDs may come back as ints (Excel strips leading zeros) — normalise
-        out[str(r["ID"]).strip().split(".")[0].zfill(4)] = str(r["ACCOUNT PLAN"]).strip()
+        try:
+            key = int(float(str(r["ID"]).strip()))
+        except ValueError:
+            continue
+        out[key] = str(r["ACCOUNT PLAN"]).strip()
     return out
 
 
@@ -352,10 +335,17 @@ def load_ireland():
         lambda r: r["Units"] * r["_grams"] / 1000.0 if r["_grams"] else 0.0, axis=1
     )
 
-    # Account Plan merge (dummy file generated on first run)
-    ensure_ie_plans_file(ie["ID"].unique().tolist())
+    # Account Plan merge — join the numeric brick ID ("0001" -> 1) to the
+    # Id | Account Plan file. Bricks with no listed plan get "No Plan".
     plans = load_ie_plans()
-    ie["account_plan"] = ie["ID"].map(lambda i: plans.get(i, "No Plan"))
+
+    def _plan(bid):
+        try:
+            return plans.get(int(bid), "No Plan")
+        except (ValueError, TypeError):
+            return "No Plan"
+
+    ie["account_plan"] = ie["ID"].map(_plan)
 
     agg = (
         ie.groupby(

@@ -30,7 +30,7 @@ const ieState = {
 };
 
 // The slicer keys this page owns (SEL sets in shared.js, ms-… ids in HTML).
-const IE_SLICERS = ["ieManufacturer", "iebrand", "ieproduct", "ieprovince", "iecounty", "ieminibrick", "ieplan"];
+const IE_SLICERS = ["ieManufacturer", "iebrand", "ieproduct", "ieprovince", "iecounty", "iebrick", "ieminibrick", "ieplan"];
 
 // Which column of an Ireland row each slicer checks against.
 const IE_FIELD = {
@@ -39,6 +39,7 @@ const IE_FIELD = {
   ieproduct: "product",
   ieprovince: "province",
   iecounty: "county",
+  iebrick: "brick",
   ieminibrick: "mini_brick",
   ieplan: "account_plan",
 };
@@ -91,7 +92,7 @@ function ieRows(win) {
 // share is measured against everything sold there (incl. ALL OTHER BABY
 // MILKS), not against itself.
 function ieMatchesMarket(r) {
-  for (const k of ["ieprovince", "iecounty", "ieminibrick", "ieplan"])
+  for (const k of ["ieprovince", "iecounty", "iebrick", "ieminibrick", "ieplan"])
     if (SEL[k].size && !SEL[k].has(r[IE_FIELD[k]])) return false;
   return true;
 }
@@ -575,6 +576,7 @@ function setupIreland() {
     setMselOptions("ieproduct", ie.meta.products);
     setMselOptions("ieprovince", ie.meta.provinces);
     setMselOptions("iecounty", ie.meta.counties);
+    setMselOptions("iebrick", ie.meta.bricks);
     setMselOptions("ieminibrick", ie.meta.mini_bricks);
     setMselOptions("ieplan", ie.meta.account_plans);
   }
