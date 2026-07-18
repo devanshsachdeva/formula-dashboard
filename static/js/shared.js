@@ -140,54 +140,60 @@ function toggleTheme() {
   if (typeof showPage === "function") showPage(); // redraws the active page's charts
 }
 
-// Manufacturer colour families:
-//   Nutricia -> purples · Nestlé -> greys · MJN -> Nutramigen blues + Puramino
-//   orange · Abbott -> green · Other -> tan
+// Manufacturer colour families (single scheme reused by EVERY chart, table and
+// KPI card so the whole report reads the same):
+//   Nutricia -> purples · Nestlé -> pinks · MJN -> dark blues + cyan ·
+//   Abbott -> green · Other -> slate.
+// NOTE: the MJN blues/cyan are placeholders — swap in the exact brand hex codes
+// here (and in PRODUCT_COLORS below) once provided; nothing else needs editing.
 const BRAND_COLORS = {
-  NEOCATE: "#9333ea",    // Nutricia — warm purple (kept away from blue)
-  PEPTI: "#d946ef",      // Nutricia — magenta
-  NUTRAMIGEN: "#1d4ed8", // MJN — royal blue
-  PURAMINO: "#f97316",   // MJN — orange
-  ALTHERA: "#475569",    // Nestlé — dark grey
-  ALFAMINO: "#94a3b8",   // Nestlé — light grey
+  NEOCATE: "#7c3aed",    // Nutricia — violet
+  PEPTI: "#9333ea",      // Nutricia — purple
+  NUTRAMIGEN: "#1d4ed8", // MJN — dark blue
+  PURAMINO: "#06b6d4",   // MJN — cyan
+  ALTHERA: "#be185d",    // Nestlé — deep pink
+  ALFAMINO: "#ec4899",   // Nestlé — pink
   ARIZE: "#16a34a",      // Abbott — green
-  OTHER: "#a16207",      // tan
+  OTHER: "#64748b",      // slate
 };
 const MFR_COLORS = {
-  NUTRICIA: "#9333ea",
-  NESTLE: "#6b7280",
-  MJN: "#1d4ed8",
-  ABBOTT: "#16a34a",
-  OTHER: "#a16207",
+  NUTRICIA: "#7c3aed",   // purple
+  NESTLE: "#db2777",     // pink
+  MJN: "#1d4ed8",        // dark blue
+  ABBOTT: "#16a34a",     // green
+  OTHER: "#64748b",      // slate
 };
 const CAT_COLORS = { EHF: "#2563eb", AAF: "#f97316", RICE: "#a855f7" };
 const FALLBACK = ["#64748b", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
-// client-line products: shades within each manufacturer family
+// growth is ALWAYS orange across the report (line colour + label ink)
+const GROWTH_COLOR = "#f97316";
+function growthLabelColor() { return isDark() ? "#fb923c" : "#c2410c"; }
+// client-line products: shades within each manufacturer's colour family
 const PRODUCT_COLORS = {
-  // Nutricia — Neocate warm purples (dark -> light), no blue-violets
-  "NEOCATE LCP": "#7e22ce",
-  "NEOCATE SYNEO": "#9333ea",
-  "NEOCATE JUNIOR": "#a855f7",
-  "NEOCATE SPOON": "#c084fc",
-  "NEOCATE ADVANCE": "#d8b4fe",
-  // Nutricia — Pepti magentas (dark -> light)
-  "PEPTI 1": "#a21caf",
-  "PEPTI 2": "#d946ef",
-  "PEPTI SYNEO": "#e879f9",
-  "PEPTI JUNIOR": "#f5d0fe",
-  // MJN — Nutramigen cool blues + Puramino orange
+  // Nutricia — Neocate violets (dark -> light)
+  "NEOCATE LCP": "#4c1d95",
+  "NEOCATE SYNEO": "#6d28d9",
+  "NEOCATE JUNIOR": "#7c3aed",
+  "NEOCATE SPOON": "#8b5cf6",
+  "NEOCATE ADVANCE": "#a78bfa",
+  // Nutricia — Pepti purples (dark -> light)
+  "PEPTI 1": "#7e22ce",
+  "PEPTI 2": "#9333ea",
+  "PEPTI SYNEO": "#a855f7",
+  "PEPTI JUNIOR": "#c084fc",
+  // MJN — Nutramigen dark blues + Puramino cyan (placeholder hexes)
   "NUTRAMIGEN 1-MJN": "#1e3a8a",
-  "NUTRAMIGEN 2-MJN": "#3b82f6",
-  "NUTRAMIGEN 3-MJN": "#93c5fd",
-  "PURAMINO": "#f97316",
-  // Nestlé greys
-  "ALTHERA": "#475569",
-  "ALFAMINO": "#94a3b8",
+  "NUTRAMIGEN 2-MJN": "#2563eb",
+  "NUTRAMIGEN 3-MJN": "#60a5fa",
+  "PURAMINO": "#06b6d4",
+  // Nestlé pinks
+  "ALTHERA": "#be185d",
+  "ALFAMINO": "#ec4899",
   // Abbott green
   "SIMILAC ARIZE": "#16a34a",
-  // Other — tans
-  "PREGESTIMIL": "#a16207",
-  "ELECARE": "#ca8a04",
+  // Other — slate
+  "PREGESTIMIL": "#64748b",
+  "ELECARE": "#94a3b8",
 };
 const FAR_FUTURE = "2049-01-01"; // 2050-01-01 entries are "no date" placeholders
 
@@ -526,6 +532,18 @@ function colorFor(key, mode, i) {
   if (mode === "product") return PRODUCT_COLORS[key] || FALLBACK[i % FALLBACK.length];
   const table = mode === "manufacturer" ? MFR_COLORS : mode === "category" ? CAT_COLORS : BRAND_COLORS;
   return table[key] || FALLBACK[i % FALLBACK.length];
+}
+
+/* Paint a KPI card's "top colour shade" from the report's colour scheme, so
+   the accent automatically follows whatever brand/manufacturer the card is
+   about (e.g. an EHF card led by Nutramigen goes MJN-blue; a Nutricia-led
+   card goes purple). One place = every KPI card stays consistent. Pass the
+   already-resolved brand/manufacturer colour (via colorFor). */
+function applyKpiAccent(el, color) {
+  if (!el || !color) return;
+  el.style.borderTopColor = color;
+  el.style.setProperty("--kpi", color);
+  el.style.background = `linear-gradient(180deg, ${withAlpha(color, 0.09)}, var(--card) 60%)`;
 }
 function growthHTML(cur, prev, vsLabel) {
   if (!prev) return `<span class="growth flat">no comparison</span>`;

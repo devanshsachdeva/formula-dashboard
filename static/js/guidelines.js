@@ -181,10 +181,10 @@ function renderCatCards(win) {
 
     const card = document.createElement("div");
     card.className = "card kpi cat-card" + (active ? " active" : "");
-    const accent = CAT_COLORS[cat] || "#94a3b8";
-    card.style.borderTopColor = accent;
-    card.style.setProperty("--kpi", accent); // colours the big number to match
-    card.style.background = `linear-gradient(180deg, ${withAlpha(accent, 0.07)}, var(--card) 60%)`;
+    // top colour shade auto-follows the category's LEADING brand (MJN-blue,
+    // Nutricia-purple, Nestlé-pink…), falling back to the category colour.
+    const accent = top ? colorFor(top[0], "brand", 0) : (CAT_COLORS[cat] || "#94a3b8");
+    applyKpiAccent(card, accent);
     card.innerHTML = `
       ${active ? `<button class="card-clear" title="Clear ${cat} filter">&times;</button>` : ""}
       <span class="kpi-label">${cat} — ${win.label}</span>
@@ -720,14 +720,14 @@ function renderICBMatYoY() {
           },
         },
         {
-          // near-black line so it can't be confused with Puramino-orange bars
+          // growth is always orange across the report
           type: "line", label: "Growth (%)", yAxisID: "y1", order: 1,
           data: keys.map(growth),
-          borderColor: themeContrast(), backgroundColor: themeContrast(),
+          borderColor: GROWTH_COLOR, backgroundColor: GROWTH_COLOR,
           borderWidth: 2, tension: 0.3, pointRadius: 3, pointHoverRadius: 5, spanGaps: false,
           datalabels: {
             display: true,
-            align: "top", offset: 6, color: themeContrast(),
+            align: "top", offset: 6, color: growthLabelColor(),
             font: { size: 9, weight: "700" },
             formatter: (v) => (v == null ? null : (v >= 0 ? "+" : "") + v.toFixed(1) + "%"),
           },
@@ -747,7 +747,7 @@ function renderICBMatYoY() {
             generateLabels: (chart) => [
               { text: "MAT PY (faded)", fillStyle: "rgba(100,116,139,0.4)", strokeStyle: "rgba(100,116,139,0.4)", pointStyle: "rect", datasetIndex: 0, hidden: !chart.isDatasetVisible(0) },
               { text: "MAT CY (solid)", fillStyle: themeInkSoft(), strokeStyle: themeInkSoft(), pointStyle: "rect", datasetIndex: 1, hidden: !chart.isDatasetVisible(1) },
-              { text: isMS ? "Δ share (%)" : "Growth (%)", fillStyle: themeContrast(), strokeStyle: themeContrast(), pointStyle: "line", datasetIndex: 2, hidden: !chart.isDatasetVisible(2) },
+              { text: isMS ? "Δ share (%)" : "Growth (%)", fillStyle: GROWTH_COLOR, strokeStyle: GROWTH_COLOR, pointStyle: "line", datasetIndex: 2, hidden: !chart.isDatasetVisible(2) },
             ],
           },
         },

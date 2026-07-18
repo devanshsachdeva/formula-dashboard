@@ -211,6 +211,17 @@ function renderUKKPIs(win, cur, prev) {
       <span class="kpi-value">${topBrand ? esc(topBrand[0]) : "—"}</span>
       <span class="kpi-sub">${topBrand && total ? "MS% " + ((topBrand[1] / total) * 100).toFixed(1) + "%" : "no data"}</span>
     </div>`;
+
+  // Top colour shades auto-follow the report's colour scheme: the leading
+  // manufacturer/brand colour drives each card, so the KPIs recolour with the
+  // data (MJN-blue, Nutricia-purple, Nestlé-pink…) instead of fixed hues.
+  const cards = $("uk-kpis").querySelectorAll(".kpi");
+  const mfrColor = topMfr ? colorFor(topMfr[0], "manufacturer", 0) : null;
+  const brandColor = topBrand ? colorFor(topBrand[0], "brand", 0) : null;
+  applyKpiAccent(cards[0], brandColor);   // Volume — overall leader
+  applyKpiAccent(cards[1], mfrColor);     // Value — leading manufacturer
+  applyKpiAccent(cards[2], mfrColor);     // Top manufacturer
+  applyKpiAccent(cards[3], brandColor);   // Top brand
 }
 
 /* ---------------------------------------------------------------------------
@@ -670,11 +681,11 @@ function renderUKMatYoY() {
         },
         {
           type: "line", label: "Growth (" + growthUnit + ")", yAxisID: "y1", order: 1,
-          data: keys.map(growth), borderColor: "#f97316", backgroundColor: "#f97316",
+          data: keys.map(growth), borderColor: GROWTH_COLOR, backgroundColor: GROWTH_COLOR,
           borderWidth: 2, tension: 0.3, pointRadius: 3, pointHoverRadius: 5, spanGaps: false,
           datalabels: {
             display: true,
-            align: "top", offset: 4, color: "#c2410c", font: { size: 9, weight: "700" },
+            align: "top", offset: 4, color: growthLabelColor(), font: { size: 9, weight: "700" },
             formatter: (v) => (v == null ? null : (v >= 0 ? "+" : "") + v.toFixed(1) + growthUnit),
           },
         },
@@ -695,7 +706,7 @@ function renderUKMatYoY() {
             generateLabels: (chart) => [
               { text: "MAT PY (faded)", fillStyle: "rgba(100,116,139,0.4)", strokeStyle: "rgba(100,116,139,0.4)", pointStyle: "rect", datasetIndex: 0, hidden: !chart.isDatasetVisible(0) },
               { text: "MAT CY (solid)", fillStyle: themeInkSoft(), strokeStyle: themeInkSoft(), pointStyle: "rect", datasetIndex: 1, hidden: !chart.isDatasetVisible(1) },
-              { text: "Growth (" + growthUnit + ")", fillStyle: "#f97316", strokeStyle: "#f97316", pointStyle: "line", datasetIndex: 2, hidden: !chart.isDatasetVisible(2) },
+              { text: "Growth (" + growthUnit + ")", fillStyle: GROWTH_COLOR, strokeStyle: GROWTH_COLOR, pointStyle: "line", datasetIndex: 2, hidden: !chart.isDatasetVisible(2) },
             ],
           },
         },
