@@ -20,6 +20,7 @@ build() returns a dict with:
 
 import json
 import os
+import re
 from datetime import datetime
 
 import pandas as pd
@@ -230,6 +231,38 @@ IE_PRODUCT_BRANDS = {
 #   e.g. IE_TIN_PRICES = {"NUTRAMIGEN LGG": 19.50, "NEOCATE LCP": 38.20, ...}
 IE_TIN_PRICES: dict = {}
 
+# Tin weight (grams) per product, used to convert tins -> Factored Units (KGs):
+#   factored_units = units (tins) x grams / 1000
+# Rules for resolving a product's tin weight, in order:
+#   1. a size in the product name wins   ("… 400G" -> 400, "… 800G" -> 800)
+#   2. MJN products are 400g (a fixed rule from the brand)
+#   3. an explicit override in IE_TIN_GRAMS below
+#   4. otherwise unknown -> the row's factored_units is left as 0 and the
+#      product is reported in build() so the missing sizes can be filled in.
+# Fill these in once confirmed (grams per tin):
+IE_TIN_GRAMS = {
+    # "NEOCATE LCP": 400,
+    # "NEOCATE JUNIOR": 400,
+    # "NEOCATE SYNEO": 400,
+    # "APTAMIL PEPTI SYNE": 800,
+    # "APTAMIL PEPTI JR": 800,
+    # "ALL OTHER BABY MILKS": 800,   # mixed bucket — a nominal average
+}
+
+_IE_SIZE_RE = re.compile(r"(\d+)\s*G(?![A-Za-z])")
+
+
+def ie_tin_grams(product: str, manufacturer: str):
+    """Grams per tin for a product, or None when unknown (see rules above)."""
+    m = _IE_SIZE_RE.search(str(product).upper())
+    if m:
+        return int(m.group(1))
+    if product in IE_TIN_GRAMS:
+        return IE_TIN_GRAMS[product]
+    if manufacturer == "MJN":
+        return 400  # MJN tins are 400g
+    return None
+
 # The single HDM who owns all of Ireland (used by the RLS login gate; the
 # Ireland page itself intentionally has NO HDM filter).
 IE_HDM = "Celine Jordan"
@@ -312,6 +345,13 @@ def load_ireland():
 
     ie["value"] = ie.apply(_value, axis=1)
 
+    # Factored Units (KGs) = tins x tin weight. Unknown-weight products get 0
+    # (and are reported by build_ireland so the missing sizes can be added).
+    ie["_grams"] = ie.apply(lambda r: ie_tin_grams(r["Product"], r["manufacturer"]), axis=1)
+    ie["factored_units"] = ie.apply(
+        lambda r: r["Units"] * r["_grams"] / 1000.0 if r["_grams"] else 0.0, axis=1
+    )
+
     # Account Plan merge (dummy file generated on first run)
     ensure_ie_plans_file(ie["ID"].unique().tolist())
     plans = load_ie_plans()
@@ -322,7 +362,7 @@ def load_ireland():
             ["Month", "ID", "mini_brick", "brick", "County", "Province",
              "Product", "brand", "manufacturer", "account_plan"],
             as_index=False,
-        )[["Units", "value"]]
+        )[["Units", "value", "factored_units"]]
         .sum()
         .rename(columns={
             "Month": "date", "ID": "id", "County": "county",
@@ -330,8 +370,12 @@ def load_ireland():
         })
     )
     agg["date"] = pd.to_datetime(agg["date"]).dt.strftime("%Y-%m-%d")
-    agg["units"] = agg["units"].round(2)
-    agg["value"] = agg["value"].round(2)
+    for col in ("units", "value", "factored_units"):
+        agg[col] = agg[col].round(2)
+    # remember which products still have no tin weight (KGs shows 0 for them)
+    agg.attrs["kg_unknown"] = sorted(
+        ie.loc[ie["_grams"].isna(), "Product"].unique().tolist()
+    )
     return agg
 
 
@@ -344,6 +388,7 @@ def build_ireland():
     return {
         "hdm": IE_HDM,
         "performance": agg.to_dict(orient="records"),
+        "kg_unknown": agg.attrs.get("kg_unknown", []),
         "meta": {
             "months": uniq("date"),
             "provinces": uniq("province"),

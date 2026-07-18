@@ -130,7 +130,7 @@ function ieScopeLabel() {
 
 function fmtMetricIE(n) {
   return (ieState.metric === "value" ? "€" : "") + fmtNum(n) +
-    (ieState.metric === "units" ? " tins" : "");
+    (ieState.metric === "units" ? " tins" : ieState.metric === "factored_units" ? " KGs" : "");
 }
 
 /* ---------------------------------------------------------------------------
@@ -548,9 +548,14 @@ function renderIreland() {
   const win = ieWindows();
   const cur = ieRows(win.cur);
   const prev = ieRows(win.prev);
-  $("ie-caption").textContent =
+  let caption =
     `${win.label}: ${windowLabel(win.cur)}` +
     (win.prev.length ? `  ·  compared with ${win.vs}: ${windowLabel(win.prev)}` : "");
+  // KGs is derived from tins × tin weight; warn if some tin sizes are unknown
+  if (ieState.metric === "factored_units" && ie.kg_unknown && ie.kg_unknown.length) {
+    caption += `  ·  ⚠ KGs excludes products with no confirmed tin size: ${ie.kg_unknown.join(", ")}`;
+  }
+  $("ie-caption").textContent = caption;
   renderIEKPIs(win, cur, prev);
   renderIERegion(win, cur, prev);
   renderIETrend();
