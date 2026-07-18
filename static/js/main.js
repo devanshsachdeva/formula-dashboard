@@ -65,6 +65,8 @@ function showPage() {
   // toggles on a page that was hidden had zero-width buttons — re-measure the
   // sliding thumbs now that this page's controls are visible
   if (typeof positionAllToggleThumbs === "function") positionAllToggleThumbs();
+  // pick up any tables just rendered (incl. dynamic tracker tables)
+  if (typeof enableAllTableSorts === "function") enableAllTableSorts();
 }
 
 window.addEventListener("hashchange", showPage);
@@ -91,7 +93,8 @@ function bootDashboard() {
   restoreFilters();
   setupUK();
   setupIreland();
-  initToggleThumbs(); // animated sliding pill on every segmented toggle
+  initToggleThumbs();   // animated sliding pill on every segmented toggle
+  enableAllTableSorts(); // click any column header to sort
   _booted = true;
 }
 

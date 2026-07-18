@@ -672,6 +672,19 @@ thead th {
 thead th:first-child { border-top-left-radius: 8px; }
 thead th:last-child { border-top-right-radius: 8px; }
 thead th:hover { color: var(--ink); }
+/* click-to-sort headers: a faint ⇅ hint that turns into ▲/▼ when active */
+table.table-sortable thead th.th-sort { padding-right: 20px; position: sticky; }
+table.table-sortable thead th.th-sort::after {
+  content: "⇅";
+  position: absolute;
+  right: 7px;
+  color: var(--line);
+  font-size: 10px;
+  font-weight: 700;
+}
+table.table-sortable thead th.th-sort:hover::after { color: var(--muted); }
+table.table-sortable thead th.sort-asc::after { content: "▲"; color: var(--accent); }
+table.table-sortable thead th.sort-desc::after { content: "▼"; color: var(--accent); }
 tbody td { padding: 10px; border-bottom: 1px solid rgba(228, 228, 231, 0.7); vertical-align: top; }
 tbody tr:hover { background: rgba(24, 24, 27, 0.03); }
 td.num, th.num { font-variant-numeric: tabular-nums; }

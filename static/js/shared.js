@@ -599,6 +599,120 @@ function initToggleThumbs() {
   window.addEventListener("resize", positionAllToggleThumbs);
 }
 
+// ---------- click-to-sort on every table column (auto, report-wide) ----------
+// enableAllTableSorts() makes every <table> sortable by clicking any column
+// header. Tables that already have bespoke sorting (their headers carry a
+// data-sort attribute — the Guidelines & exclusivity tables) are left alone.
+// The chosen sort is remembered per table and re-applied automatically after
+// a re-render (the league tables rebuild their tbody on every filter change),
+// via a MutationObserver on the tbody. Number-vs-text is auto-detected per
+// column, understanding k/M suffixes, £/€ and ▲/▼ delta arrows.
+
+const _tableSortState = new WeakMap(); // table -> { col, dir }
+
+function _cellText(td) {
+  return td ? (td.textContent || "").trim() : "";
+}
+
+// does this cell read as a number? (currency/arrow/sign prefix then a digit)
+function _looksNumeric(t) {
+  return /^[▲▼▬↑↓\s]*[-+]?\s*[£€$]?\s*\d/.test(t);
+}
+
+function _toSortNumber(t) {
+  const down = /[▼↓]/.test(t);
+  const cleaned = t.replace(/,/g, "");
+  const m = cleaned.match(/-?\d+(?:\.\d+)?/);
+  if (!m) return null;
+  let n = parseFloat(m[0]);
+  const suf = cleaned.match(/\d\s*([kKmMbB])/); // 895.9k, 1.5M, £93.33M
+  if (suf) n *= { k: 1e3, m: 1e6, b: 1e9 }[suf[1].toLowerCase()];
+  if (down && n > 0) n = -n; // a ▼ delta with no explicit sign is negative
+  return n;
+}
+
+function _sortTable(table, col, dir) {
+  const tbody = table.tBodies[0];
+  if (!tbody) return;
+  const rows = [...tbody.rows];
+  if (rows.length < 2) return;
+  const cells = rows.map((r) => _cellText(r.cells[col]));
+  const nonEmpty = cells.filter((v) => v && v !== "—" && v !== "n/a");
+  const numeric =
+    nonEmpty.length > 0 &&
+    nonEmpty.filter(_looksNumeric).length / nonEmpty.length >= 0.6;
+  const idx = rows.map((r, i) => i);
+  idx.sort((ia, ib) => {
+    const ta = cells[ia], tb = cells[ib];
+    let cmp;
+    if (numeric) {
+      const na = _toSortNumber(ta), nb = _toSortNumber(tb);
+      if (na == null && nb == null) cmp = 0;
+      else if (na == null) cmp = 1;          // blanks always last
+      else if (nb == null) cmp = -1;
+      else cmp = na - nb;
+    } else {
+      cmp = ta.localeCompare(tb, undefined, { numeric: true, sensitivity: "base" });
+    }
+    return (dir === "desc" ? -cmp : cmp) || ia - ib; // stable
+  });
+  const frag = document.createDocumentFragment();
+  idx.forEach((i) => frag.appendChild(rows[i]));
+  tbody.appendChild(frag);
+}
+
+function _applyTableSort(table) {
+  const st = _tableSortState.get(table);
+  if (!st) return;
+  table._sorting = true;                     // ignore our own reorder mutations
+  _sortTable(table, st.col, st.dir);
+  Promise.resolve().then(() => { table._sorting = false; });
+}
+
+function _updateSortHeaders(table) {
+  const st = _tableSortState.get(table);
+  const head = table.tHead && table.tHead.rows[0];
+  if (!head) return;
+  [...head.cells].forEach((th, i) => {
+    th.classList.remove("sort-asc", "sort-desc");
+    if (st && st.col === i) th.classList.add(st.dir === "asc" ? "sort-asc" : "sort-desc");
+  });
+}
+
+function enableTableSort(table) {
+  if (!table || table._sortEnabled) return;
+  const head = table.tHead && table.tHead.rows[0];
+  if (!head) return;
+  // leave tables that already manage their own sorting (data-sort headers)
+  if ([...head.cells].some((th) => th.hasAttribute("data-sort"))) return;
+  table._sortEnabled = true;
+  table.classList.add("table-sortable");
+  [...head.cells].forEach((th, col) => {
+    th.classList.add("th-sort");
+    th.addEventListener("click", () => {
+      const cur = _tableSortState.get(table);
+      const dir = cur && cur.col === col && cur.dir === "asc" ? "desc" : "asc";
+      _tableSortState.set(table, { col, dir });
+      _applyTableSort(table);
+      _updateSortHeaders(table);
+    });
+  });
+  const tbody = table.tBodies[0];
+  if (tbody) {
+    new MutationObserver(() => {
+      if (table._sorting) return;            // our own reorder — skip
+      if (_tableSortState.get(table)) {      // a re-render replaced rows
+        _applyTableSort(table);
+        _updateSortHeaders(table);
+      }
+    }).observe(tbody, { childList: true });
+  }
+}
+
+function enableAllTableSorts() {
+  document.querySelectorAll("table").forEach(enableTableSort);
+}
+
 // ---------- copy-visual-as-image (auto-added to every chart) ----------
 // upsertChart() calls ensureCopyButton() for each canvas it draws on, so EVERY
 // visual across the report gets a small hover button that copies the chart.
