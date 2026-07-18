@@ -280,6 +280,7 @@ h1 { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: 0.02em; color
 
 /* placeholder pages */
 .placeholder { max-width: 720px; margin: 0 auto; padding: 80px 24px; }
+#ie-placeholder { max-width: 720px; margin: 80px auto; }
 .placeholder-card { text-align: center; padding: 48px 32px; border-radius: 16px; }
 .placeholder-card .mono { margin: 0 auto 16px; }
 .placeholder-card h2 { margin: 0 0 10px; font-size: 22px; }

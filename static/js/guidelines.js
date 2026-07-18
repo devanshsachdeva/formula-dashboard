@@ -1845,6 +1845,14 @@ function saveFilters() {
       ukTrendValue: ukState.trendValue,
       ukMatDim: ukState.matDim,
       ukMatValue: ukState.matValue,
+      ukLeagueDim: ukState.leagueDim,
+      iePeriod: ieState.period,
+      ieMetric: ieState.metric,
+      ieTrendDim: ieState.trendDim,
+      ieTrendValue: ieState.trendValue,
+      ieMatDim: ieState.matDim,
+      ieMatValue: ieState.matValue,
+      ieLeagueDim: ieState.leagueDim,
     };
     localStorage.setItem("dashboard-filters", JSON.stringify(state));
   } catch (_) { /* private mode etc. — ignore */ }
@@ -1905,6 +1913,38 @@ function restoreFilters() {
       ukState.matValue = state.ukMatValue;
       document.querySelectorAll("#uk-mat-value-toggle button")
         .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.matValue));
+    }
+    if (state.ukLeagueDim) {
+      ukState.leagueDim = state.ukLeagueDim;
+      document.querySelectorAll("#uk-league-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.leagueDim));
+    }
+    if (state.iePeriod) { ieState.period = state.iePeriod; $("ie-period").value = state.iePeriod; }
+    if (state.ieMetric) { ieState.metric = state.ieMetric; $("ie-metric").value = state.ieMetric; }
+    if (state.ieTrendDim) {
+      ieState.trendDim = state.ieTrendDim;
+      document.querySelectorAll("#ie-trend-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.trendDim));
+    }
+    if (state.ieTrendValue) {
+      ieState.trendValue = state.ieTrendValue;
+      document.querySelectorAll("#ie-trend-value-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.trendValue));
+    }
+    if (state.ieMatDim) {
+      ieState.matDim = state.ieMatDim;
+      document.querySelectorAll("#ie-mat-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.matDim));
+    }
+    if (state.ieMatValue) {
+      ieState.matValue = state.ieMatValue;
+      document.querySelectorAll("#ie-mat-value-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.matValue));
+    }
+    if (state.ieLeagueDim) {
+      ieState.leagueDim = state.ieLeagueDim;
+      document.querySelectorAll("#ie-league-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.leagueDim));
     }
 
     document.querySelectorAll(".custom-range").forEach((el) => (el.hidden = $("f-period").value !== "custom"));

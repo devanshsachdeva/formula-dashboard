@@ -29,6 +29,7 @@ const ukState = {
   trendValue: "actual",      // Monthly trend: "actual" = volumes, "ms" = share %
   matDim: "brand",           // MAT year-on-year: brand | product
   matValue: "actual",        // MAT year-on-year: "actual" = volumes, "ms" = share %
+  leagueDim: "brand",        // League table: brand | product
 };
 
 // The six slicer keys this page owns. Each key matches an element with
@@ -562,30 +563,45 @@ function renderUKMovers(win, cur, prev) {
 --------------------------------------------------------------------------- */
 function renderUKBrandTable(win, cur, prev) {
   const metric = ukState.metric;
-  const brandMfr = new Map(); // brand -> its manufacturer (for the 2nd column)
-  for (const r of cur) if (!brandMfr.has(r.brand)) brandMfr.set(r.brand, r.manufacturer);
+  const byProduct = ukState.leagueDim === "product";
+  const dim = byProduct ? "product" : "brand";
 
-  const curBy = sumBy(cur, (r) => r.brand, metric);
-  const prevBy = sumBy(prev, (r) => r.brand, metric);
+  // headers follow the Brands / Products switch
+  $("uk-league-col1").textContent = byProduct ? "Product" : "Brand";
+  $("uk-league-col2").textContent = byProduct ? "Brand" : "Manufacturer";
+
+  // look-ups for the secondary columns
+  const brandOf = new Map(), mfrOf = new Map();
+  for (const r of cur) {
+    if (!brandOf.has(r.product)) brandOf.set(r.product, r.brand);
+    if (!mfrOf.has(r.brand)) mfrOf.set(r.brand, r.manufacturer);
+  }
+
+  const curBy = sumBy(cur, (r) => r[dim], metric);
+  const prevBy = sumBy(prev, (r) => r[dim], metric);
   const curTotal = [...curBy.values()].reduce((s, v) => s + v, 0);
   const prevTotal = [...prevBy.values()].reduce((s, v) => s + v, 0);
 
-  const rows = [...curBy.entries()].sort((a, b) => b[1] - a[1]).map(([b, v]) => {
-    const p = prevBy.get(b) || 0;
-    const ms = curTotal ? (v / curTotal) * 100 : 0;              // share now
-    const msPrev = prevTotal ? (p / prevTotal) * 100 : null;     // share before
+  const rows = [...curBy.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => {
+    const p = prevBy.get(k) || 0;
+    const ms = curTotal ? (v / curTotal) * 100 : 0;
+    const msPrev = prevTotal ? (p / prevTotal) * 100 : null;
     return {
-      brand: b, mfr: brandMfr.get(b) || "", vol: v,
-      growth: p ? ((v - p) / p) * 100 : null,                    // volume growth
-      ms, dms: msPrev != null ? ms - msPrev : null,              // share change (pts)
+      key: k,
+      col2: byProduct ? (brandOf.get(k) || "") : (mfrOf.get(k) || ""),
+      vol: v,
+      growth: p ? ((v - p) / p) * 100 : null,
+      ms, dms: msPrev != null ? ms - msPrev : null,
     };
   });
 
   // deltaHTML (guidelines.js) draws the little ▲/▼ coloured deltas
   document.querySelector("#uk-brand-table tbody").innerHTML = rows.map((r) => `
     <tr>
-      <td><strong>${esc(r.brand)}</strong></td>
-      <td>${esc(r.mfr)}</td>
+      <td><strong>${esc(r.key)}</strong></td>
+      <td>${byProduct
+        ? `<span style="color:${colorFor(r.col2, "brand", 0)};font-weight:700">${esc(r.col2)}</span>`
+        : esc(r.col2)}</td>
       <td class="num">${fmtMetricUK(r.vol)}</td>
       <td class="num">${r.growth == null ? "—" : deltaHTML(r.growth, 0, "%")}</td>
       <td class="num"><strong>${r.ms.toFixed(1)}%</strong></td>
@@ -849,6 +865,18 @@ function setupUK() {
     })
   );
 
+  // League table Brands / Products toggle
+  document.querySelectorAll("#uk-league-toggle button").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#uk-league-toggle button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      ukState.leagueDim = btn.dataset.mode;
+      saveFilters();
+      const win = ukWindows();
+      renderUKBrandTable(win, ukRows(win.cur), ukRows(win.prev));
+    })
+  );
+
   // Clear all: empty every UK slicer + reset the selects and the toggle
   $("uk-clear").addEventListener("click", () => {
     for (const k of UK_SLICERS) {
@@ -862,6 +890,7 @@ function setupUK() {
     ukState.trendValue = "actual";
     ukState.matDim = "brand";
     ukState.matValue = "actual";
+    ukState.leagueDim = "brand";
     $("uk-period").value = "mat";
     $("uk-metric").value = "factored_units";
     document.querySelectorAll("#uk-cat-toggle button")
@@ -874,6 +903,8 @@ function setupUK() {
       .forEach((b) => b.classList.toggle("active", b.dataset.mode === "brand"));
     document.querySelectorAll("#uk-mat-value-toggle button")
       .forEach((b) => b.classList.toggle("active", b.dataset.mode === "actual"));
+    document.querySelectorAll("#uk-league-toggle button")
+      .forEach((b) => b.classList.toggle("active", b.dataset.mode === "brand"));
     renderUK();
   });
 }

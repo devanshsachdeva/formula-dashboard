@@ -61,6 +61,7 @@ function showPage() {
   // charts need visible canvases to size correctly — rebuild on entry
   if (onDash && DATA) render();
   if (p === "uk" && DATA) renderUK();
+  if (p === "ireland" && DATA) renderIreland();
   // toggles on a page that was hidden had zero-width buttons — re-measure the
   // sliding thumbs now that this page's controls are visible
   if (typeof positionAllToggleThumbs === "function") positionAllToggleThumbs();
@@ -89,6 +90,7 @@ function bootDashboard() {
   setupFilters();
   restoreFilters();
   setupUK();
+  setupIreland();
   initToggleThumbs(); // animated sliding pill on every segmented toggle
   _booted = true;
 }
@@ -98,8 +100,10 @@ function bootDashboard() {
 // defaults, then persists the cleared state via their render/saveFilters.
 function clearAllFilters() {
   const uk = document.getElementById("uk-clear");
+  const ie = document.getElementById("ie-clear");
   const gl = document.getElementById("clear-filters");
   if (uk) uk.click();
+  if (ie) ie.click();
   if (gl) gl.click();
 }
 

@@ -232,6 +232,14 @@ const SEL = {
   ukhdm: new Set(),
   ukmanufacturer: new Set(),
   ukbrand: new Set(),
+  // Ireland page slicers (no HDM — Ireland has a single owner)
+  ieManufacturer: new Set(),
+  iebrand: new Set(),
+  ieproduct: new Set(),
+  ieprovince: new Set(),
+  iecounty: new Set(),
+  ieminibrick: new Set(),
+  ieplan: new Set(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -318,6 +326,13 @@ const MSEL_DEFS = [
   { key: "ukmanufacturer", placeholder: "All manufacturers" },
   { key: "ukbrand", placeholder: "All brands" },
   { key: "ukhdm", placeholder: "All HDMs" },
+  { key: "ieManufacturer", placeholder: "All manufacturers" },
+  { key: "iebrand", placeholder: "All brands" },
+  { key: "ieproduct", placeholder: "All products" },
+  { key: "ieprovince", placeholder: "All provinces" },
+  { key: "iecounty", placeholder: "All counties" },
+  { key: "ieminibrick", placeholder: "All mini bricks" },
+  { key: "ieplan", placeholder: "All account plans" },
 ];
 
 const mselEl = (key) => $("ms-" + key);
@@ -412,6 +427,10 @@ function onFilterChange(key) {
     renderUK();
     return;
   }
+  if (key.startsWith("ie")) {
+    renderIreland();
+    return;
+  }
   render();
 }
 
@@ -438,9 +457,19 @@ async function loadData() {
 // itself, so every chart, table, KPI and slicer is scoped automatically and a
 // user can't widen past their territory. RLS_HDM = null means full/admin.
 
-/** All HDM names from the full data, for the login screen. */
+/** All HDM names from the full data, for the login screen. Ireland's single
+ *  HDM (Celine Jordan) is appended so she can log in and see HER page. */
 function allHdms() {
-  return [...RAW_HDM_ICBS.keys()].sort();
+  const hdms = [...RAW_HDM_ICBS.keys()];
+  if (RAW.ireland && RAW.ireland.hdm && !hdms.includes(RAW.ireland.hdm)) {
+    hdms.push(RAW.ireland.hdm);
+  }
+  return hdms.sort();
+}
+
+/** Is this HDM the Ireland owner? */
+function isIrelandHdm(hdm) {
+  return !!(hdm && RAW && RAW.ireland && RAW.ireland.hdm === hdm);
 }
 
 /** Build a payload containing only rows for the given set of ICBs, with meta
@@ -470,14 +499,25 @@ function scopeData(raw, allowed) {
   };
 }
 
-/** Lock (or unlock) the dashboard to an HDM. Rebuilds the scoped DATA + maps. */
+/** Lock (or unlock) the dashboard to an HDM. Rebuilds the scoped DATA + maps.
+ *  Ireland rule: the whole Ireland dataset belongs to ONE HDM (Celine
+ *  Jordan). She sees Ireland in full but no UK rows; UK HDMs see their UK
+ *  ICBs but no Ireland; admin sees everything. */
 function applyRLS(hdm) {
-  RLS_HDM = hdm && RAW_HDM_ICBS.has(hdm) ? hdm : null;
-  DATA = RLS_HDM ? scopeData(RAW, RAW_HDM_ICBS.get(RLS_HDM)) : RAW;
+  const ie = isIrelandHdm(hdm);
+  RLS_HDM = hdm && (RAW_HDM_ICBS.has(hdm) || ie) ? hdm : null;
+  if (!RLS_HDM) {
+    DATA = RAW;                                        // admin — everything
+  } else if (ie) {
+    DATA = { ...scopeData(RAW, new Set()), ireland: RAW.ireland };
+  } else {
+    DATA = { ...scopeData(RAW, RAW_HDM_ICBS.get(RLS_HDM)), ireland: null };
+  }
   document.documentElement.setAttribute("data-rls", RLS_HDM ? "scoped" : "all");
   buildMaps();
   _lastSelSig = null;   // force guideline slicer option lists to rebuild
   _ukLastSig = null;    // force UK slicer option lists to rebuild
+  if (typeof _ieLastSig !== "undefined") _ieLastSig = null; // Ireland slicers too
 }
 
 // The header "Refresh data" button — available on EVERY page. Forces the

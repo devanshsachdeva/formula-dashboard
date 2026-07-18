@@ -29,6 +29,44 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 GL_XLSX = os.environ.get("GL_XLSX", os.path.join(DATA_DIR, "GL Dataset Base.xlsx"))
 PERF_XLSX = os.environ.get("PERF_XLSX", os.path.join(DATA_DIR, "Performance.xlsx"))
+# ICB -> HDM ownership. When present, this workbook OVERRIDES the HDM column
+# of the GL workbook everywhere (slicers, tables, tracker) — it is the single
+# source of truth for who owns which ICB.
+HDM_XLSX = os.environ.get("HDM_XLSX", os.path.join(DATA_DIR, "Updated ICB HDM Structure.xlsx"))
+
+# spots where the structure file spells an ICB differently from the
+# performance/GL workbooks (structure-file spelling -> dashboard spelling)
+HDM_ICB_ALIASES = {
+    "LEICS LEICESTERSHIRE & RUT ICS": "LEICS LEICSTSH & RUT ICS",
+}
+
+
+def load_hdm_structure() -> dict:
+    """UPPERCASE ICB -> HDM from the Updated ICB HDM Structure workbook.
+    The file mixes region header rows (e.g. 'Scotland') between the ICB rows;
+    those simply never match an ICB name so they fall away harmlessly.
+    Returns {} when the file is absent — the GL workbook's own HDM column is
+    then used as a fallback."""
+    if not os.path.exists(HDM_XLSX):
+        return {}
+    df = pd.read_excel(HDM_XLSX)
+    df = df.iloc[:, :2]
+    df.columns = ["ICB", "HDM"]
+    df = df.dropna(subset=["ICB", "HDM"])
+    out = {}
+    for _, r in df.iterrows():
+        icb = str(r["ICB"]).strip().upper()
+        icb = HDM_ICB_ALIASES.get(icb, icb)
+        out[icb] = str(r["HDM"]).strip()
+    return out
+
+# Ireland monthly sell-out data (optional — the Ireland page shows a
+# placeholder when the file is absent).
+IE_XLSX = os.environ.get("IE_XLSX", os.path.join(DATA_DIR, "Ireland Data.xlsx"))
+# ID -> Account Plan mapping. The ID is the numeric 4-char prefix of the
+# Mini Brick column (e.g. "0001"). A dummy file is generated on first run —
+# replace it with the real mapping (same columns: ID | ACCOUNT PLAN) any time.
+IE_PLANS_XLSX = os.environ.get("IE_PLANS_XLSX", os.path.join(DATA_DIR, "Ireland Account Plans.xlsx"))
 
 # Optional export target for `python3 process_data.py` (the server does not use it)
 OUT_JSON = os.path.join(DATA_DIR, "dashboard_data.json")
@@ -98,6 +136,19 @@ def load_guidelines() -> tuple[pd.DataFrame, pd.DataFrame]:
         .reset_index()
         .rename(columns={"APC": "ICB"})
     )
+
+    # Override HDM ownership from the Updated ICB HDM Structure workbook — it
+    # is the single source of truth when present. ICBs it doesn't cover keep
+    # the GL workbook's original HDM as a fallback.
+    hdm_map = load_hdm_structure()
+    if hdm_map:
+        detail["HDM"] = [
+            hdm_map.get(str(i).upper(), old) for i, old in zip(detail["ICB"], detail["HDM"])
+        ]
+        summary["hdm"] = [
+            hdm_map.get(str(i).upper(), old) for i, old in zip(summary["ICB"], summary["hdm"])
+        ]
+
     return summary, detail
 
 
@@ -106,14 +157,16 @@ def load_performance() -> pd.DataFrame:
         PERF_XLSX,
         sheet_name=PERF_SHEET,
         usecols=[
-            "NHS Region", "ICB", "CATEGORY", "BRAND", "MANUFACTURER",
+            "NHS Region", "ICB", "PCO", "CATEGORY", "BRAND", "MANUFACTURER",
             "Client Line", "EXCLUSIVE GL", "DATE", "Units", "Values", "Factored Units",
         ],
     )
     # Drop blank rows and normalise the merge key / dimensions to strings so
     # hand-edited workbooks (stray empty rows, mixed types) don't break parsing.
+    # PCO is the sub-ICB prescribing unit — surfaced in the app as "CCG".
     perf = perf.dropna(subset=["ICB", "DATE", "CATEGORY", "BRAND"]).copy()
-    for col in ("NHS Region", "ICB", "CATEGORY", "BRAND", "MANUFACTURER", "Client Line", "EXCLUSIVE GL"):
+    perf["PCO"] = perf["PCO"].fillna(perf["ICB"])  # rows without a PCO fall back to the ICB
+    for col in ("NHS Region", "ICB", "PCO", "CATEGORY", "BRAND", "MANUFACTURER", "Client Line", "EXCLUSIVE GL"):
         perf[col] = perf[col].astype(str).str.strip()
     perf["DATE"] = pd.to_datetime(perf["DATE"], errors="coerce")
     perf = perf.dropna(subset=["DATE"])
@@ -122,7 +175,7 @@ def load_performance() -> pd.DataFrame:
 
     agg = (
         perf.groupby(
-            ["DATE", "NHS Region", "ICB", "CATEGORY", "BRAND", "MANUFACTURER", "Client Line", "EXCLUSIVE GL"],
+            ["DATE", "NHS Region", "ICB", "PCO", "CATEGORY", "BRAND", "MANUFACTURER", "Client Line", "EXCLUSIVE GL"],
             as_index=False,
         )[["Units", "Values", "Factored Units"]]
         .sum()
@@ -130,6 +183,7 @@ def load_performance() -> pd.DataFrame:
             columns={
                 "NHS Region": "region",
                 "ICB": "icb",
+                "PCO": "ccg",
                 "CATEGORY": "category",
                 "BRAND": "brand",
                 "MANUFACTURER": "manufacturer",
@@ -148,12 +202,173 @@ def load_performance() -> pd.DataFrame:
     return agg
 
 
+# ---------------------------------------------------------------------------
+# Ireland performance data
+#
+# data/Ireland Data.xlsx — monthly sell-out rows:
+#   Mini Brick | Brick | County | Province | Market | Product | Month |
+#   Euro RRP | Units
+# The Mini Brick cell is alphanumeric ("0001 1 LETTERKENNY"): the first 4
+# characters are the numeric brick ID (kept as a separate ID column, used to
+# merge the Account Plan mapping), and the trailing words are the mini brick
+# name proper ("LETTERKENNY") — the leading numbers never surface in the UI.
+# ---------------------------------------------------------------------------
+
+# Product -> (brand, manufacturer), following the same families the UK page
+# uses so the shared colour scheme applies unchanged.
+IE_PRODUCT_BRANDS = {
+    "APTAMIL PEPTI": ("PEPTI", "NUTRICIA"),
+    "NEOCATE": ("NEOCATE", "NUTRICIA"),
+    "NUTRAMIGEN PURAMNO": ("PURAMINO", "MJN"),
+    "NUTRAMIGEN": ("NUTRAMIGEN", "MJN"),
+    "ALL OTHER BABY MILKS": ("OTHER", "OTHER"),
+}
+
+# Price per tin, per product — TO BE PROVIDED. When filled in, the backend
+# computes value = units x price (a corrected value column) instead of the
+# workbook's Euro RRP. Leave a product out to fall back to Euro RRP for it.
+#   e.g. IE_TIN_PRICES = {"NUTRAMIGEN LGG": 19.50, "NEOCATE LCP": 38.20, ...}
+IE_TIN_PRICES: dict = {}
+
+# The single HDM who owns all of Ireland (used by the RLS login gate; the
+# Ireland page itself intentionally has NO HDM filter).
+IE_HDM = "Celine Jordan"
+
+
+def _ie_brand_mfr(product: str) -> tuple:
+    p = product.upper()
+    for prefix, bm in IE_PRODUCT_BRANDS.items():
+        if p.startswith(prefix):
+            return bm
+    return ("OTHER", "OTHER")
+
+
+def ensure_ie_plans_file(ids: list) -> None:
+    """Create a DUMMY ID -> ACCOUNT PLAN workbook so the merge pipeline works
+    end-to-end. Replace with the real file (same two columns) when available;
+    it is only generated when missing, never overwritten."""
+    if os.path.exists(IE_PLANS_XLSX):
+        return
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Account Plans"
+    ws.append(["ID", "ACCOUNT PLAN"])
+    dummy_plans = ["Gold Plan", "Silver Plan", "Bronze Plan", "No Plan"]
+    for i, bid in enumerate(sorted(ids)):
+        ws.append([bid, dummy_plans[i % len(dummy_plans)]])
+    ws.column_dimensions["A"].width = 10
+    ws.column_dimensions["B"].width = 16
+    wb.save(IE_PLANS_XLSX)
+
+
+def load_ie_plans() -> dict:
+    """ID (4-digit string) -> Account Plan name."""
+    if not os.path.exists(IE_PLANS_XLSX):
+        return {}
+    df = pd.read_excel(IE_PLANS_XLSX)
+    df.columns = [str(c).strip().upper() for c in df.columns]
+    if "ID" not in df.columns or "ACCOUNT PLAN" not in df.columns:
+        return {}
+    out = {}
+    for _, r in df.dropna(subset=["ID", "ACCOUNT PLAN"]).iterrows():
+        # IDs may come back as ints (Excel strips leading zeros) — normalise
+        out[str(r["ID"]).strip().split(".")[0].zfill(4)] = str(r["ACCOUNT PLAN"]).strip()
+    return out
+
+
+def load_ireland():
+    """Ireland rows ready for the dashboard, or None when the file is absent."""
+    if not os.path.exists(IE_XLSX):
+        return None
+    ie = pd.read_excel(IE_XLSX)
+    ie.columns = [str(c).strip() for c in ie.columns]
+    ie = ie.dropna(subset=["Mini Brick", "Product", "Month"]).copy()
+
+    mb = ie["Mini Brick"].astype(str).str.strip()
+    # ID = the numeric 4-char prefix ("0001 1 LETTERKENNY" -> "0001")
+    ie["ID"] = mb.str[:4]
+    # mini brick name = the words after the "#### #" prefix ("LETTERKENNY")
+    ie["mini_brick"] = mb.str.replace(r"^\d{4}\s+\d+\s*", "", regex=True).str.strip()
+    # brick name without its numeric prefix ("0001-DONEGAL" -> "DONEGAL")
+    ie["brick"] = (
+        ie["Brick"].astype(str).str.replace(r"^\d+\s*-\s*", "", regex=True).str.strip()
+    )
+
+    for col in ("County", "Province", "Product"):
+        ie[col] = ie[col].astype(str).str.strip()
+    ie["Month"] = pd.to_datetime(ie["Month"], errors="coerce")
+    ie = ie.dropna(subset=["Month"])
+
+    brands = ie["Product"].map(lambda p: _ie_brand_mfr(p))
+    ie["brand"] = brands.map(lambda t: t[0])
+    ie["manufacturer"] = brands.map(lambda t: t[1])
+
+    # value column: corrected tin pricing when provided, Euro RRP otherwise
+    def _value(r):
+        price = IE_TIN_PRICES.get(r["Product"])
+        return r["Units"] * price if price is not None else r["Euro RRP"]
+
+    ie["value"] = ie.apply(_value, axis=1)
+
+    # Account Plan merge (dummy file generated on first run)
+    ensure_ie_plans_file(ie["ID"].unique().tolist())
+    plans = load_ie_plans()
+    ie["account_plan"] = ie["ID"].map(lambda i: plans.get(i, "No Plan"))
+
+    agg = (
+        ie.groupby(
+            ["Month", "ID", "mini_brick", "brick", "County", "Province",
+             "Product", "brand", "manufacturer", "account_plan"],
+            as_index=False,
+        )[["Units", "value"]]
+        .sum()
+        .rename(columns={
+            "Month": "date", "ID": "id", "County": "county",
+            "Province": "province", "Product": "product", "Units": "units",
+        })
+    )
+    agg["date"] = pd.to_datetime(agg["date"]).dt.strftime("%Y-%m-%d")
+    agg["units"] = agg["units"].round(2)
+    agg["value"] = agg["value"].round(2)
+    return agg
+
+
+def build_ireland():
+    """The `ireland` payload key: rows + slicer option lists, or None."""
+    agg = load_ireland()
+    if agg is None:
+        return None
+    uniq = lambda col: sorted(agg[col].unique())
+    return {
+        "hdm": IE_HDM,
+        "performance": agg.to_dict(orient="records"),
+        "meta": {
+            "months": uniq("date"),
+            "provinces": uniq("province"),
+            "counties": uniq("county"),
+            "bricks": uniq("brick"),
+            "mini_bricks": uniq("mini_brick"),
+            "products": uniq("product"),
+            "brands": uniq("brand"),
+            "manufacturers": uniq("manufacturer"),
+            "account_plans": uniq("account_plan"),
+        },
+    }
+
+
 def source_signature() -> tuple:
     """(path, mtime, size) for each source file — used to detect edits."""
     sig = []
     paths = [GL_XLSX, PERF_XLSX]
     if os.path.exists(EVENTS_XLSX):
         paths.append(EVENTS_XLSX)
+    if os.path.exists(HDM_XLSX):
+        paths.append(HDM_XLSX)  # editing the HDM structure hot-reloads too
+    for p in (IE_XLSX, IE_PLANS_XLSX):
+        if os.path.exists(p):
+            paths.append(p)  # Ireland data + account plans hot-reload too
     for path in paths:
         st = os.stat(path)  # raises FileNotFoundError with a clear message
         sig.append((path, st.st_mtime, st.st_size))
@@ -321,10 +536,14 @@ def _change_description(version: int, changes: list) -> str:
 
 HISTORY_JSON = os.path.join(DATA_DIR, "gl_history.json")
 
+# NOTE: "hdm" is intentionally NOT tracked — HDM ownership comes from its own
+# structure workbook (Updated ICB HDM Structure.xlsx) and is org reference
+# data, not a guideline change; tracking it would flood the register whenever
+# territories are reshuffled.
 TRACKED_FIELDS = [
     "ehf_gl", "ehf_first", "ehf_second",
     "aaf_gl", "aaf_first", "aaf_second",
-    "gl_followed", "hdm", "latest_published", "next_review",
+    "gl_followed", "latest_published", "next_review",
 ]
 
 
@@ -437,6 +656,7 @@ def build() -> dict:
         "meta": {
             "regions": sorted(merged["region"].unique()),
             "icbs": sorted(merged["icb"].unique()),
+            "ccgs": sorted(merged["ccg"].unique()),
             "categories": sorted(merged["category"].unique()),
             "brands": sorted(merged["brand"].unique()),
             "products": sorted(merged["product"].unique()),
@@ -448,6 +668,7 @@ def build() -> dict:
         "gl_detail": gl_detail.to_dict(orient="records"),
         "gl_history": update_history(gl_summary),
         "gl_events": load_events(),
+        "ireland": build_ireland(),  # None when data/Ireland Data.xlsx is absent
     }
     return payload
 
