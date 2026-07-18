@@ -230,6 +230,7 @@ function upsertChart(id, config) {
     delete charts[id];
   }
   charts[id] = new Chart($(id).getContext("2d"), config);
+  ensureCopyButton(id); // every visual gets a copy-as-image button
 }
 
 /** Guideline state active for an ICB at a given date (from the history log,

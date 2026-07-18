@@ -232,14 +232,30 @@ function renderUKKPIs(win, cur, prev) {
 --------------------------------------------------------------------------- */
 function renderUKRegion(win, cur, prev) {
   const metric = ukState.metric;
-  const curBy = sumBy(cur, (r) => r.region, metric);   // region -> total now
-  const prevBy = sumBy(prev, (r) => r.region, metric); // region -> total before
+
+  // Normally one bar per NHS region. But when the scope covers a SINGLE
+  // region (e.g. RLS locked to an HDM whose ICBs all sit in one region, or a
+  // region filter), one lone bar looks broken — so drop a level and show the
+  // ICB breakdown of that region instead. The card heading follows suit.
+  const regionCur = sumBy(cur, (r) => r.region, metric);
+  const byICB = regionCur.size <= 1;
+  const dimOf = (r) => (byICB ? r.icb : r.region);
+  const curBy = byICB ? sumBy(cur, (r) => r.icb, metric) : regionCur;
+  const prevBy = sumBy(prev, dimOf, metric);
   const entries = [...curBy.entries()].sort((a, b) => b[1] - a[1]); // biggest first
+
+  const heading = $("uk-chart-region").closest(".card").querySelector("h2");
+  if (heading) {
+    const scopeNote = byICB && regionCur.size === 1 ? ` — ${esc([...regionCur.keys()][0])}` : "";
+    heading.innerHTML =
+      (byICB ? "Volume by ICB" : "Volume by NHS region") +
+      ` <span class="hint">(selected period, with growth vs comparison period${scopeNote})</span>`;
+  }
 
   upsertChart("uk-chart-region", {
     type: "bar",
     data: {
-      labels: entries.map(([k]) => k),                 // bar names (regions)
+      labels: entries.map(([k]) => k),                 // bar names (regions/ICBs)
       datasets: [{
         data: entries.map(([, v]) => v),               // bar lengths (volumes)
         backgroundColor: "#4f46e5",
@@ -263,8 +279,8 @@ function renderUKRegion(win, cur, prev) {
           callbacks: {
             // the hover box also explains growth vs the comparison window
             label: (c) => {
-              const region = entries[c.dataIndex][0];
-              const p = prevBy.get(region) || 0;
+              const key = entries[c.dataIndex][0];
+              const p = prevBy.get(key) || 0;
               const g = p ? (((c.parsed.x - p) / p) * 100).toFixed(1) + "% vs " + win.vs : "no comparison";
               return ` ${fmtMetricUK(c.parsed.x)} (${g})`;
             },

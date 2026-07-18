@@ -502,6 +502,78 @@ async function refreshData() {
   }
 }
 
+// ---------- copy-visual-as-image (auto-added to every chart) ----------
+// upsertChart() calls ensureCopyButton() for each canvas it draws on, so EVERY
+// visual across the report gets a small hover button that copies the chart.
+// JPEG has no transparency, so the canvas is first flattened onto the card
+// background. Clipboards only accept PNG bitmaps for images, so the click
+// copies a PNG (pasteable into email/PowerPoint); if the clipboard is
+// unavailable (http, older browser, permissions) it downloads a .jpg instead.
+// Alt/Option-click always downloads the .jpg file.
+
+function flattenChartCanvas(src) {
+  const c = document.createElement("canvas");
+  c.width = src.width;
+  c.height = src.height;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = isDark() ? "#000000" : "#ffffff";
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(src, 0, 0);
+  return c;
+}
+
+function downloadChartJpeg(flat, id) {
+  const a = document.createElement("a");
+  a.href = flat.toDataURL("image/jpeg", 0.92);
+  a.download = id + ".jpg";
+  a.click();
+}
+
+async function copyChartImage(id, btn, forceDownload) {
+  const chart = charts[id];
+  const src = chart ? chart.canvas : $(id);
+  if (!src) return;
+  const flat = flattenChartCanvas(src);
+  let ok = false;
+  if (!forceDownload && navigator.clipboard && window.ClipboardItem) {
+    try {
+      const blob = await new Promise((r) => flat.toBlob(r, "image/png"));
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      ok = true;
+    } catch (_) { /* fall through to download */ }
+  }
+  if (!ok) downloadChartJpeg(flat, id);
+  if (btn) {
+    const original = btn.innerHTML;
+    btn.innerHTML = ok ? "✓ Copied" : "✓ Saved";
+    btn.classList.add("done");
+    setTimeout(() => { btn.innerHTML = original; btn.classList.remove("done"); }, 1400);
+  }
+}
+
+const COPY_ICON_SVG =
+  '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<rect x="9" y="9" width="13" height="13" rx="2"/>' +
+  '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+function ensureCopyButton(id) {
+  const canvas = $(id);
+  if (!canvas) return;
+  const wrap = canvas.closest(".chart-wrap") || canvas.parentElement;
+  if (!wrap || wrap.querySelector(".chart-copy-btn")) return;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "chart-copy-btn";
+  btn.title = "Copy visual as image (Alt-click to download JPEG)";
+  btn.innerHTML = COPY_ICON_SVG + " Copy";
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    copyChartImage(id, btn, e.altKey);
+  });
+  wrap.appendChild(btn);
+}
+
 function sumBy(rows, keyFn, metric) {
   const out = new Map();
   for (const r of rows) {

@@ -576,6 +576,31 @@ button.ghost:hover { border-color: var(--accent); color: var(--accent); backgrou
 .chart-wrap { position: relative; height: 280px; }
 .chart-wrap.tall { height: 360px; }
 
+/* copy-visual button: floats top-right of every chart, appears on hover */
+.chart-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.12s, border-color 0.12s;
+}
+.chart-wrap:hover .chart-copy-btn,
+.chart-copy-btn:focus-visible { opacity: 1; }
+.chart-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+.chart-copy-btn.done { color: var(--ok); border-color: var(--ok); opacity: 1; }
+
 /* segmented-control style toggles: a recessed track, the active option pops
    out as a raised white pill */
 .toggle-group { display: flex; gap: 8px; flex-wrap: wrap; }
