@@ -168,6 +168,10 @@ const FALLBACK = ["#64748b", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a
 // growth is ALWAYS orange across the report (line colour + label ink)
 const GROWTH_COLOR = "#f97316";
 function growthLabelColor() { return isDark() ? "#fb923c" : "#c2410c"; }
+// Aggregate KPI cards (Volume / Value) use fixed accents OUTSIDE the brand
+// palette, so they never look like they belong to a brand/manufacturer.
+const KPI_VOLUME_COLOR = "#0d9488"; // teal
+const KPI_VALUE_COLOR = "#4d7c0f";  // olive
 // client-line products: shades within each manufacturer's colour family
 const PRODUCT_COLORS = {
   // Nutricia — Neocate violets (dark -> light)

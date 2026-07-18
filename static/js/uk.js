@@ -212,16 +212,15 @@ function renderUKKPIs(win, cur, prev) {
       <span class="kpi-sub">${topBrand && total ? "MS% " + ((topBrand[1] / total) * 100).toFixed(1) + "%" : "no data"}</span>
     </div>`;
 
-  // Top colour shades auto-follow the report's colour scheme: the leading
-  // manufacturer/brand colour drives each card, so the KPIs recolour with the
-  // data (MJN-blue, Nutricia-purple, Nestlé-pink…) instead of fixed hues.
+  // Volume & Value are aggregates, not a brand/manufacturer — give them fixed
+  // teal/olive accents. Only the "Top …" cards follow the brand colour scheme.
   const cards = $("uk-kpis").querySelectorAll(".kpi");
   const mfrColor = topMfr ? colorFor(topMfr[0], "manufacturer", 0) : null;
   const brandColor = topBrand ? colorFor(topBrand[0], "brand", 0) : null;
-  applyKpiAccent(cards[0], brandColor);   // Volume — overall leader
-  applyKpiAccent(cards[1], mfrColor);     // Value — leading manufacturer
-  applyKpiAccent(cards[2], mfrColor);     // Top manufacturer
-  applyKpiAccent(cards[3], brandColor);   // Top brand
+  applyKpiAccent(cards[0], KPI_VOLUME_COLOR); // Volume — fixed teal
+  applyKpiAccent(cards[1], KPI_VALUE_COLOR);  // Value — fixed olive
+  applyKpiAccent(cards[2], mfrColor);         // Top manufacturer
+  applyKpiAccent(cards[3], brandColor);       // Top brand
 }
 
 /* ---------------------------------------------------------------------------
