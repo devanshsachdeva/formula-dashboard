@@ -321,6 +321,11 @@ def load_ireland():
     ie["brand"] = brands.map(lambda t: t[0])
     ie["manufacturer"] = brands.map(lambda t: t[1])
 
+    # Exclude the OTHER bucket (ALL OTHER BABY MILKS) from the whole dataset —
+    # it never appears in any Ireland chart, table, slicer or MS% denominator
+    # (mirrors the UK rule that drops OTHER entirely).
+    ie = ie[ie["brand"] != "OTHER"].copy()
+
     # value column: corrected tin pricing when provided, Euro RRP otherwise
     def _value(r):
         price = IE_TIN_PRICES.get(r["Product"])

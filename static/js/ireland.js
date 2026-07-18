@@ -318,14 +318,14 @@ function renderIETrend() {
 }
 
 /* ---------------------------------------------------------------------------
-   9. CHART: Top 15 mini bricks (selected period, horizontal bars)
+   9. CHART: Top 15 bricks (selected period, horizontal bars)
 --------------------------------------------------------------------------- */
 function renderIEMiniBricks(win, cur) {
   const metric = ieState.metric;
-  const by = [...sumBy(cur, (r) => r.mini_brick, metric).entries()]
+  const by = [...sumBy(cur, (r) => r.brick, metric).entries()]
     .sort((a, b) => b[1] - a[1]).slice(0, 15);
 
-  upsertChart("ie-chart-minibricks", {
+  upsertChart("ie-chart-bricks", {
     type: "bar",
     data: {
       labels: by.map(([k]) => k),
