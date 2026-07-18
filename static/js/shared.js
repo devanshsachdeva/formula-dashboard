@@ -664,9 +664,17 @@ function _sortTable(table, col, dir) {
 function _applyTableSort(table) {
   const st = _tableSortState.get(table);
   if (!st) return;
+  const head = table.tHead && table.tHead.rows[0];
+  if (head && st.col >= head.cells.length) { _tableSortState.delete(table); return; }
   table._sorting = true;                     // ignore our own reorder mutations
   _sortTable(table, st.col, st.dir);
   Promise.resolve().then(() => { table._sorting = false; });
+}
+
+function _markSortHeaders(table) {
+  const head = table.tHead && table.tHead.rows[0];
+  if (!head) return;
+  [...head.cells].forEach((th) => th.classList.add("th-sort"));
 }
 
 function _updateSortHeaders(table) {
@@ -681,27 +689,41 @@ function _updateSortHeaders(table) {
 
 function enableTableSort(table) {
   if (!table || table._sortEnabled) return;
-  const head = table.tHead && table.tHead.rows[0];
-  if (!head) return;
+  const head = table.tHead;
+  if (!head || !head.rows[0]) return;
   // leave tables that already manage their own sorting (data-sort headers)
-  if ([...head.cells].some((th) => th.hasAttribute("data-sort"))) return;
+  if ([...head.rows[0].cells].some((th) => th.hasAttribute("data-sort"))) return;
   table._sortEnabled = true;
+  table._hdrLen = head.rows[0].cells.length;
   table.classList.add("table-sortable");
-  [...head.cells].forEach((th, col) => {
-    th.classList.add("th-sort");
-    th.addEventListener("click", () => {
-      const cur = _tableSortState.get(table);
-      const dir = cur && cur.col === col && cur.dir === "asc" ? "desc" : "asc";
-      _tableSortState.set(table, { col, dir });
-      _applyTableSort(table);
-      _updateSortHeaders(table);
-    });
+  _markSortHeaders(table);
+  // DELEGATED click: survives header rebuilds (e.g. the league Brands/Products
+  // switch rewrites the whole header row).
+  head.addEventListener("click", (e) => {
+    const th = e.target.closest("th");
+    if (!th || !head.contains(th)) return;
+    const col = th.cellIndex;
+    const cur = _tableSortState.get(table);
+    const dir = cur && cur.col === col && cur.dir === "asc" ? "desc" : "asc";
+    _tableSortState.set(table, { col, dir });
+    _applyTableSort(table);
+    _updateSortHeaders(table);
   });
   const tbody = table.tBodies[0];
   if (tbody) {
     new MutationObserver(() => {
       if (table._sorting) return;            // our own reorder — skip
-      if (_tableSortState.get(table)) {      // a re-render replaced rows
+      // a re-render may have rebuilt the header too — re-tag it
+      _markSortHeaders(table);
+      // if the column layout changed (e.g. Brands<->Products), drop the sort
+      const len = table.tHead.rows[0].cells.length;
+      if (len !== table._hdrLen) {
+        table._hdrLen = len;
+        _tableSortState.delete(table);
+        _updateSortHeaders(table);
+        return;
+      }
+      if (_tableSortState.get(table)) {      // re-apply the chosen sort
         _applyTableSort(table);
         _updateSortHeaders(table);
       }
