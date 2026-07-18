@@ -61,6 +61,9 @@ function showPage() {
   // charts need visible canvases to size correctly — rebuild on entry
   if (onDash && DATA) render();
   if (p === "uk" && DATA) renderUK();
+  // toggles on a page that was hidden had zero-width buttons — re-measure the
+  // sliding thumbs now that this page's controls are visible
+  if (typeof positionAllToggleThumbs === "function") positionAllToggleThumbs();
 }
 
 window.addEventListener("hashchange", showPage);
@@ -86,6 +89,7 @@ function bootDashboard() {
   setupFilters();
   restoreFilters();
   setupUK();
+  initToggleThumbs(); // animated sliding pill on every segmented toggle
   _booted = true;
 }
 

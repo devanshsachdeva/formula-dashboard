@@ -502,6 +502,61 @@ async function refreshData() {
   }
 }
 
+// ---------- animated segmented-control toggles (auto, report-wide) ----------
+// Every .toggle group (MS%/Actuals, By brand/product/…, AAF/EHF, Brands/
+// Products) gets a white "thumb" pill that SLIDES to the active option
+// instead of the pill just jumping. Fully automatic: a MutationObserver
+// watches each group's buttons for the .active class, so none of the existing
+// click handlers change. Position is re-measured on page switch and resize
+// (a hidden page has zero-width buttons, so placement is deferred until the
+// toggle is actually visible).
+
+function positionToggleThumb(t) {
+  const thumb = t.querySelector(".toggle-thumb");
+  if (!thumb) return;
+  const active = t.querySelector("button.active");
+  if (!active || !active.offsetWidth) {
+    // hidden page (no layout yet) or nothing active — park invisibly and
+    // re-place without animation next time we're visible
+    thumb.style.opacity = "0";
+    thumb.dataset.placed = "";
+    return;
+  }
+  const firstPlace = thumb.dataset.placed !== "1";
+  if (firstPlace) thumb.style.transition = "none"; // don't slide in from (0,0)
+  thumb.style.opacity = "1";
+  thumb.style.width = active.offsetWidth + "px";
+  thumb.style.height = active.offsetHeight + "px";
+  thumb.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  if (firstPlace) {
+    void thumb.offsetWidth; // flush so the un-animated placement is committed
+    thumb.style.transition = "";
+    thumb.dataset.placed = "1";
+  }
+}
+
+function positionAllToggleThumbs() {
+  document.querySelectorAll(".toggle").forEach(positionToggleThumb);
+}
+
+function initToggleThumbs() {
+  document.querySelectorAll(".toggle").forEach((t) => {
+    if (t.querySelector(".toggle-thumb")) return;
+    const thumb = document.createElement("span");
+    thumb.className = "toggle-thumb";
+    thumb.setAttribute("aria-hidden", "true");
+    t.prepend(thumb);
+    t.classList.add("has-thumb");
+    new MutationObserver(() => positionToggleThumb(t)).observe(t, {
+      attributes: true,
+      attributeFilter: ["class"],
+      subtree: true,
+    });
+    positionToggleThumb(t);
+  });
+  window.addEventListener("resize", positionAllToggleThumbs);
+}
+
 // ---------- copy-visual-as-image (auto-added to every chart) ----------
 // upsertChart() calls ensureCopyButton() for each canvas it draws on, so EVERY
 // visual across the report gets a small hover button that copies the chart.
