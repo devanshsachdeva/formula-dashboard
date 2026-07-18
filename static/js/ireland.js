@@ -30,10 +30,11 @@ const ieState = {
 };
 
 // The slicer keys this page owns (SEL sets in shared.js, ms-… ids in HTML).
-const IE_SLICERS = ["ieManufacturer", "iebrand", "ieproduct", "ieprovince", "iecounty", "iebrick", "ieminibrick", "ieplan"];
+const IE_SLICERS = ["ieCategory", "ieManufacturer", "iebrand", "ieproduct", "ieprovince", "iecounty", "iebrick", "ieminibrick", "ieplan"];
 
 // Which column of an Ireland row each slicer checks against.
 const IE_FIELD = {
+  ieCategory: "category",
   ieManufacturer: "manufacturer",
   iebrand: "brand",
   ieproduct: "product",
@@ -92,7 +93,9 @@ function ieRows(win) {
 // share is measured against everything sold there (incl. ALL OTHER BABY
 // MILKS), not against itself.
 function ieMatchesMarket(r) {
-  for (const k of ["ieprovince", "iecounty", "iebrick", "ieminibrick", "ieplan"])
+  // geography + account plan + category define the market; brand/mfr/product
+  // are ignored so a brand's share is measured against its whole category
+  for (const k of ["ieCategory", "ieprovince", "iecounty", "iebrick", "ieminibrick", "ieplan"])
     if (SEL[k].size && !SEL[k].has(r[IE_FIELD[k]])) return false;
   return true;
 }
@@ -571,6 +574,7 @@ function renderIreland() {
 function setupIreland() {
   const ie = DATA ? DATA.ireland : null;
   if (ie) {
+    setMselOptions("ieCategory", ie.meta.categories);
     setMselOptions("ieManufacturer", ie.meta.manufacturers);
     setMselOptions("iebrand", ie.meta.brands);
     setMselOptions("ieproduct", ie.meta.products);

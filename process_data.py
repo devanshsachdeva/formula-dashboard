@@ -225,6 +225,15 @@ IE_PRODUCT_BRANDS = {
     "ALL OTHER BABY MILKS": ("OTHER", "OTHER"),
 }
 
+# Brand -> formula category, following the same EHF/AAF split the UK dataset
+# uses (Pepti/Nutramigen = EHF, Neocate/Puramino = AAF).
+IE_BRAND_CATEGORY = {
+    "PEPTI": "EHF",
+    "NUTRAMIGEN": "EHF",
+    "NEOCATE": "AAF",
+    "PURAMINO": "AAF",
+}
+
 # Price per tin, per product — TO BE PROVIDED. When filled in, the backend
 # computes value = units x price (a corrected value column) instead of the
 # workbook's Euro RRP. Leave a product out to fall back to Euro RRP for it.
@@ -326,6 +335,8 @@ def load_ireland():
     # (mirrors the UK rule that drops OTHER entirely).
     ie = ie[ie["brand"] != "OTHER"].copy()
 
+    ie["category"] = ie["brand"].map(lambda b: IE_BRAND_CATEGORY.get(b, ""))
+
     # value column: corrected tin pricing when provided, Euro RRP otherwise
     def _value(r):
         price = IE_TIN_PRICES.get(r["Product"])
@@ -355,7 +366,7 @@ def load_ireland():
     agg = (
         ie.groupby(
             ["Month", "ID", "mini_brick", "brick", "County", "Province",
-             "Product", "brand", "manufacturer", "account_plan"],
+             "category", "Product", "brand", "manufacturer", "account_plan"],
             as_index=False,
         )[["Units", "value", "factored_units"]]
         .sum()
@@ -386,6 +397,7 @@ def build_ireland():
         "kg_unknown": agg.attrs.get("kg_unknown", []),
         "meta": {
             "months": uniq("date"),
+            "categories": uniq("category"),
             "provinces": uniq("province"),
             "counties": uniq("county"),
             "bricks": uniq("brick"),

@@ -233,6 +233,7 @@ const SEL = {
   ukmanufacturer: new Set(),
   ukbrand: new Set(),
   // Ireland page slicers (no HDM — Ireland has a single owner)
+  ieCategory: new Set(),
   ieManufacturer: new Set(),
   iebrand: new Set(),
   ieproduct: new Set(),
@@ -327,6 +328,7 @@ const MSEL_DEFS = [
   { key: "ukmanufacturer", placeholder: "All manufacturers" },
   { key: "ukbrand", placeholder: "All brands" },
   { key: "ukhdm", placeholder: "All HDMs" },
+  { key: "ieCategory", placeholder: "All categories" },
   { key: "ieManufacturer", placeholder: "All manufacturers" },
   { key: "iebrand", placeholder: "All brands" },
   { key: "ieproduct", placeholder: "All products" },
