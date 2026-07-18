@@ -51,6 +51,55 @@ function ieData() {
 }
 
 /* ---------------------------------------------------------------------------
+   COLOUR RESOLUTION — keep products/brands/manufacturers on the report's
+   scheme. Brands & manufacturers already resolve via the shared colorFor()
+   (NUTRICIA purple, MJN blue, PEPTI/NEOCATE purples, PURAMINO cyan). Ireland
+   product names (e.g. "APTAMIL PEPTI 1 POWDER 400G", "NUTRAMIGEN LGG") aren't
+   in the global PRODUCT_COLORS map, so instead of falling back to random
+   colours they inherit their BRAND's colour, spread across light→dark shades
+   so tins of the same brand stay distinguishable but on-family.
+--------------------------------------------------------------------------- */
+let IE_PRODUCT_COLOR = new Map();
+
+function _lightenHex(hex, amt) {
+  const h = hex.replace("#", "");
+  let r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  r = Math.round(r + (255 - r) * amt);
+  g = Math.round(g + (255 - g) * amt);
+  b = Math.round(b + (255 - b) * amt);
+  return "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+function ieBuildProductColors() {
+  const ie = ieData();
+  IE_PRODUCT_COLOR = new Map();
+  if (!ie) return;
+  const prodBrand = new Map();
+  for (const r of ie.performance) if (!prodBrand.has(r.product)) prodBrand.set(r.product, r.brand);
+  const byBrand = new Map(); // brand -> sorted product list
+  [...prodBrand.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([p, brand]) => {
+    if (!byBrand.has(brand)) byBrand.set(brand, []);
+    byBrand.get(brand).push(p);
+  });
+  for (const [brand, prods] of byBrand) {
+    const base = BRAND_COLORS[brand] || "#64748b";
+    const n = prods.length;
+    prods.forEach((p, i) => {
+      // an explicit global colour (e.g. NEOCATE LCP/SYNEO/JUNIOR) always wins
+      const amt = n > 1 ? (i / (n - 1)) * 0.5 : 0; // 0 → base, up to 50% lighter
+      IE_PRODUCT_COLOR.set(p, PRODUCT_COLORS[p] || _lightenHex(base, amt));
+    });
+  }
+}
+
+// Ireland-aware colour: products resolve to their brand-family shade; brands,
+// manufacturers and categories defer to the shared scheme.
+function ieColorFor(key, dim, i) {
+  if (dim === "product") return IE_PRODUCT_COLOR.get(key) || colorFor(key, dim, i);
+  return colorFor(key, dim, i);
+}
+
+/* ---------------------------------------------------------------------------
    2. TIME WINDOWS — same maths as ukWindows, on the Ireland month list
 --------------------------------------------------------------------------- */
 function ieWindows() {
@@ -289,12 +338,12 @@ function renderIETrend() {
           const t = monthTotal.get(mo) || 0;
           return t ? (v / t) * 100 : 0;
         }),
-        borderColor: colorFor(k, dim, i),
-        backgroundColor: colorFor(k, dim, i),
+        borderColor: ieColorFor(k, dim, i),
+        backgroundColor: ieColorFor(k, dim, i),
         borderWidth: 2, tension: 0.3, pointRadius: 2.5,
         datalabels: {
           display: true, align: "top", offset: 2,
-          color: colorFor(k, dim, i), font: { size: 8.5, weight: "600" },
+          color: ieColorFor(k, dim, i), font: { size: 8.5, weight: "600" },
           formatter: (v) => (isMS ? v.toFixed(0) + "%" : fmtNum(v)),
         },
       })),
@@ -414,13 +463,13 @@ function renderIEMatYoY() {
         {
           type: "bar", label: "MAT PY", yAxisID: "y", order: 3,
           data: keys.map(pyVal), borderRadius: 6,
-          backgroundColor: keys.map((k, i) => withAlpha(colorFor(k, dim, i), 0.4)),
+          backgroundColor: keys.map((k, i) => withAlpha(ieColorFor(k, dim, i), 0.4)),
           datalabels: barLabel(themeInkSoft(), "600"),
         },
         {
           type: "bar", label: "MAT CY", yAxisID: "y", order: 3,
           data: keys.map(cyVal), borderRadius: 6,
-          backgroundColor: keys.map((k, i) => colorFor(k, dim, i)),
+          backgroundColor: keys.map((k, i) => ieColorFor(k, dim, i)),
           datalabels: barLabel(themeInk(), "700"),
         },
         {
@@ -548,6 +597,7 @@ function renderIreland() {
     return;
   }
   saveFilters();
+  ieBuildProductColors();   // product→brand-family colours for this dataset
   refreshIESlicers();
   const win = ieWindows();
   const cur = ieRows(win.cur);
