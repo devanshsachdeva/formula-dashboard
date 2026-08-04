@@ -70,6 +70,9 @@ const SEL = {
   brand: new Set(),
   hdm: new Set(),
   category: new Set(), // driven by the category cards
+  // UK Performance page slicers (independent of the Guidelines page)
+  ukRegion: new Set(),
+  ukCategory: new Set(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -145,6 +148,12 @@ const MSEL_DEFS = [
   { key: "manufacturer", placeholder: "All manufacturers" },
   { key: "brand", placeholder: "All brands" },
   { key: "hdm", placeholder: "All HDMs" },
+  { key: "ukCategory", placeholder: "All categories" },
+  { key: "ukRegion", placeholder: "All regions" },
+  { key: "ukicb", placeholder: "All ICBs" },
+  { key: "ukmanufacturer", placeholder: "All manufacturers" },
+  { key: "ukbrand", placeholder: "All brands" },
+  { key: "ukhdm", placeholder: "All HDMs" },
 ];
 
 const mselEl = (key) => $("ms-" + key);
@@ -230,8 +239,14 @@ function initMsels() {
   });
 }
 
-function onFilterChange() {
-  // cross-filtering + re-render are handled centrally in render()
+function onFilterChange(key) {
+  // UK-page slicers only re-render the UK page
+  if (key === "ukRegion" || key === "ukCategory") {
+    renderUK();
+    saveFilters();
+    return;
+  }
+  // guidelines slicers: cross-filtering + re-render are handled in render()
   render();
 }
 
@@ -1946,6 +1961,8 @@ function saveFilters() {
       exclProduct,
       exclDim,
       exclTrendValue,
+      ukPeriod: ukState.period,
+      ukMetric: ukState.metric,
     };
     localStorage.setItem("dashboard-filters", JSON.stringify(state));
   } catch (_) { /* private mode etc. — ignore */ }
@@ -1970,6 +1987,8 @@ function restoreFilters() {
     if (state.exclProduct) exclProduct = state.exclProduct;
     if (state.exclDim) exclDim = state.exclDim;
     if (state.exclTrendValue) exclTrendValue = state.exclTrendValue;
+    if (state.ukPeriod) { ukState.period = state.ukPeriod; $("uk-period").value = state.ukPeriod; }
+    if (state.ukMetric) { ukState.metric = state.ukMetric; $("uk-metric").value = state.ukMetric; }
 
     document.querySelectorAll(".custom-range").forEach((el) => (el.hidden = $("f-period").value !== "custom"));
     document
@@ -1992,6 +2011,10 @@ function restoreFilters() {
     setMselOptions("manufacturer", DATA.meta.manufacturers);
     setMselOptions("brand", DATA.meta.brands);
     setMselOptions("icb", icbListForDropdown());
+    setMselOptions("ukhdm", [...HDM_ICBS.keys()].sort());
+    setMselOptions("ukmanufacturer", DATA.meta.manufacturers);
+    setMselOptions("ukbrand", DATA.meta.brands);
+    setMselOptions("ukicb", icbListForDropdown());
   } catch (_) { /* ignore corrupt state */ }
 }
 
@@ -2005,6 +2028,10 @@ function setupFilters() {
   setMselOptions("manufacturer", DATA.meta.manufacturers);
   setMselOptions("brand", DATA.meta.brands);
   setMselOptions("hdm", [...HDM_ICBS.keys()].sort());
+  setMselOptions("ukicb", DATA.meta.icbs);
+  setMselOptions("ukmanufacturer", DATA.meta.manufacturers);
+  setMselOptions("ukbrand", DATA.meta.brands);
+  setMselOptions("ukhdm", [...HDM_ICBS.keys()].sort());
 
   const months = DATA.meta.months;
   const from = $("f-from"), to = $("f-to");
@@ -2024,7 +2051,7 @@ function setupFilters() {
   for (const id of ["f-metric", "f-from", "f-to"]) $(id).addEventListener("change", render);
 
   $("clear-filters").addEventListener("click", () => {
-    Object.values(SEL).forEach((s) => s.clear());
+    for (const k of ALL_SLICERS) SEL[k].clear(); // guidelines slicers only
     $("f-metric").value = "factored_units";
     $("f-period").value = "mat";
     trendDim = "brand";
@@ -2143,15 +2170,355 @@ function render() {
   renderGLTable(win);
 }
 
+// ---------- UK Performance page ----------
+
+const ukState = { period: "mat", metric: "factored_units" };
+
+function ukWindows() {
+  const months = DATA.meta.months;
+  const lastN = (n) => months.slice(-n);
+  const prevN = (n) => months.slice(-2 * n, -n);
+  if (ukState.period === "qtr")
+    return { cur: lastN(3), prev: prevN(3), label: "Rolling QTR", vs: "prior QTR" };
+  if (ukState.period === "ytd") {
+    const year = months[months.length - 1].slice(0, 4);
+    const cur = months.filter((m) => m.startsWith(year));
+    const prevYear = String(Number(year) - 1);
+    const mm = new Set(cur.map((m) => m.slice(5, 7)));
+    const prev = months.filter((m) => m.startsWith(prevYear) && mm.has(m.slice(5, 7)));
+    return { cur, prev, label: "YTD " + year, vs: "YTD " + prevYear };
+  }
+  if (ukState.period === "all")
+    return { cur: months, prev: [], label: "All data", vs: "" };
+  return { cur: lastN(12), prev: prevN(12), label: "MAT", vs: "prior MAT" };
+}
+
+function ukRows(win) {
+  const set = new Set(win);
+  return DATA.performance.filter(
+    (r) =>
+      set.has(r.date) &&
+      (!SEL.ukRegion.size || SEL.ukRegion.has(r.region)) &&
+      (!SEL.ukCategory.size || SEL.ukCategory.has(r.category))
+  );
+}
+
+function ukScopeLabel() {
+  const reg = SEL.ukRegion.size ? [...SEL.ukRegion].sort().join(" + ") : "all regions";
+  const cat = SEL.ukCategory.size ? [...SEL.ukCategory].sort().join(" + ") : "all categories";
+  return reg + " · " + cat;
+}
+
+function renderUKKPIs(win, cur, prev) {
+  const metric = ukState.metric;
+  const sum = (rows, m) => rows.reduce((s, r) => s + r[m], 0);
+
+  const volCur = sum(cur, "factored_units"), volPrev = sum(prev, "factored_units");
+  const valCur = sum(cur, "value"), valPrev = sum(prev, "value");
+
+  const total = sum(cur, metric);
+  const byMfr = [...sumBy(cur, (r) => r.manufacturer, metric).entries()].sort((a, b) => b[1] - a[1]);
+  const byBrand = [...sumBy(cur, (r) => r.brand, metric).entries()].sort((a, b) => b[1] - a[1]);
+  const topMfr = byMfr[0], topBrand = byBrand[0];
+
+  $("uk-kpis").innerHTML = `
+    <div class="card kpi">
+      <span class="kpi-label">Volume — ${win.label}</span>
+      <span class="kpi-value">${fmtNum(volCur)} KGs</span>
+      ${growthHTML(volCur, volPrev, win.vs)}
+      <span class="kpi-sub">${ukScopeLabel()}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Value — ${win.label}</span>
+      <span class="kpi-value">£${fmtNum(valCur)}</span>
+      ${growthHTML(valCur, valPrev, win.vs)}
+      <span class="kpi-sub">${ukScopeLabel()}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Top manufacturer</span>
+      <span class="kpi-value">${topMfr ? esc(topMfr[0]) : "—"}</span>
+      <span class="kpi-sub">${topMfr && total ? "MS% " + ((topMfr[1] / total) * 100).toFixed(1) + "%" : "no data"}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Top brand</span>
+      <span class="kpi-value">${topBrand ? esc(topBrand[0]) : "—"}</span>
+      <span class="kpi-sub">${topBrand && total ? "MS% " + ((topBrand[1] / total) * 100).toFixed(1) + "%" : "no data"}</span>
+    </div>`;
+}
+
+function renderUKRegion(win, cur, prev) {
+  const metric = ukState.metric;
+  const curBy = sumBy(cur, (r) => r.region, metric);
+  const prevBy = sumBy(prev, (r) => r.region, metric);
+  const entries = [...curBy.entries()].sort((a, b) => b[1] - a[1]);
+
+  upsertChart("uk-chart-region", {
+    type: "bar",
+    data: {
+      labels: entries.map(([k]) => k),
+      datasets: [{
+        data: entries.map(([, v]) => v),
+        backgroundColor: "#4338ca",
+        borderRadius: 4,
+        datalabels: {
+          display: true, anchor: "end", align: "end", offset: 2, clamp: true,
+          color: "#1a2333", font: { size: 10, weight: "700" },
+          formatter: (v) => fmtNum(v),
+        },
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 48 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const region = entries[c.dataIndex][0];
+              const p = prevBy.get(region) || 0;
+              const g = p ? (((c.parsed.x - p) / p) * 100).toFixed(1) + "% vs " + win.vs : "no comparison";
+              return ` ${fmtMetricUK(c.parsed.x)} (${g})`;
+            },
+          },
+        },
+      },
+      scales: { x: { beginAtZero: true, ticks: { callback: (v) => fmtNum(v) } } },
+    },
+  });
+}
+
+function fmtMetricUK(n) {
+  return (ukState.metric === "value" ? "£" : "") + fmtNum(n) +
+    (ukState.metric === "factored_units" ? " KGs" : ukState.metric === "units" ? " units" : "");
+}
+
+function renderUKMfrTrend() {
+  const metric = ukState.metric;
+  const months = DATA.meta.months;
+  const rows = DATA.performance.filter(
+    (r) =>
+      (!SEL.ukRegion.size || SEL.ukRegion.has(r.region)) &&
+      (!SEL.ukCategory.size || SEL.ukCategory.has(r.category))
+  );
+  const mfrs = [...sumBy(rows, (r) => r.manufacturer, metric).entries()]
+    .sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  const cell = new Map(), monthTotal = new Map();
+  for (const r of rows) {
+    cell.set(r.date + " " + r.manufacturer, (cell.get(r.date + " " + r.manufacturer) || 0) + r[metric]);
+    monthTotal.set(r.date, (monthTotal.get(r.date) || 0) + r[metric]);
+  }
+  upsertChart("uk-chart-mfr", {
+    type: "line",
+    data: {
+      labels: months.map(monthLabel),
+      datasets: mfrs.map((m, i) => ({
+        label: m,
+        data: months.map((mo) => {
+          const t = monthTotal.get(mo) || 0;
+          return t ? ((cell.get(mo + " " + m) || 0) / t) * 100 : 0;
+        }),
+        borderColor: colorFor(m, "manufacturer", i),
+        backgroundColor: colorFor(m, "manufacturer", i),
+        fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 8, borderWidth: 2,
+        datalabels: { display: false },
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true } },
+        tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: MS% ${c.parsed.y.toFixed(1)}%` } },
+      },
+      scales: {
+        y: { beginAtZero: true, grace: "8%", ticks: { callback: (v) => v + "%" } },
+        x: { grid: { display: false } },
+      },
+    },
+  });
+}
+
+function renderUKCatMix() {
+  const metric = ukState.metric;
+  const months = DATA.meta.months;
+  const rows = DATA.performance.filter((r) => !SEL.ukRegion.size || SEL.ukRegion.has(r.region));
+  const cats = ["EHF", "AAF", "RICE"].filter(
+    (c) => DATA.meta.categories.includes(c) && (!SEL.ukCategory.size || SEL.ukCategory.has(c))
+  );
+  const cell = new Map();
+  for (const r of rows) cell.set(r.date + " " + r.category, (cell.get(r.date + " " + r.category) || 0) + r[metric]);
+  upsertChart("uk-chart-cat", {
+    type: "bar",
+    data: {
+      labels: months.map(monthLabel),
+      datasets: cats.map((c) => ({
+        label: c,
+        data: months.map((m) => cell.get(m + " " + c) || 0),
+        backgroundColor: CAT_COLORS[c],
+        borderRadius: 2,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true } },
+        tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${fmtMetricUK(c.parsed.y)}` } },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, ticks: { callback: (v) => fmtNum(v) } },
+      },
+    },
+  });
+}
+
+function renderUKMovers(win, cur, prev) {
+  const metric = ukState.metric;
+  const curBy = sumBy(cur, (r) => r.icb, metric);
+  const prevBy = sumBy(prev, (r) => r.icb, metric);
+  const total = [...curBy.values()].reduce((s, v) => s + v, 0);
+  const movers = [];
+  for (const [icb, c] of curBy) {
+    const p = prevBy.get(icb) || 0;
+    if (!p || c + p < total * 0.005) continue; // skip tiny bases
+    movers.push({ icb, pct: ((c - p) / p) * 100 });
+  }
+  movers.sort((a, b) => b.pct - a.pct);
+  const top = [...movers.slice(0, 5), ...movers.slice(-5)].filter(
+    (m, i, arr) => arr.findIndex((x) => x.icb === m.icb) === i
+  );
+  upsertChart("uk-chart-movers", {
+    type: "bar",
+    data: {
+      labels: top.map((m) => m.icb),
+      datasets: [{
+        data: top.map((m) => m.pct),
+        backgroundColor: top.map((m) => (m.pct >= 0 ? "#16a34a" : "#dc2626")),
+        borderRadius: 4,
+        datalabels: {
+          display: true, anchor: "end", align: "end", offset: 2, clamp: true,
+          color: "#1a2333", font: { size: 10, weight: "700" },
+          formatter: (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%",
+        },
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 54 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => ` ${(c.parsed.x >= 0 ? "+" : "") + c.parsed.x.toFixed(1)}% vs ${win.vs}` } },
+      },
+      scales: { x: { ticks: { callback: (v) => v + "%" } } },
+    },
+  });
+}
+
+function renderUKBrandTable(win, cur, prev) {
+  const metric = ukState.metric;
+  const brandMfr = new Map();
+  for (const r of cur) if (!brandMfr.has(r.brand)) brandMfr.set(r.brand, r.manufacturer);
+  const curBy = sumBy(cur, (r) => r.brand, metric);
+  const prevBy = sumBy(prev, (r) => r.brand, metric);
+  const curTotal = [...curBy.values()].reduce((s, v) => s + v, 0);
+  const prevTotal = [...prevBy.values()].reduce((s, v) => s + v, 0);
+
+  const rows = [...curBy.entries()].sort((a, b) => b[1] - a[1]).map(([b, v]) => {
+    const p = prevBy.get(b) || 0;
+    const ms = curTotal ? (v / curTotal) * 100 : 0;
+    const msPrev = prevTotal ? (p / prevTotal) * 100 : null;
+    return { brand: b, mfr: brandMfr.get(b) || "", vol: v, growth: p ? ((v - p) / p) * 100 : null, ms, dms: msPrev != null ? ms - msPrev : null };
+  });
+
+  document.querySelector("#uk-brand-table tbody").innerHTML = rows.map((r) => `
+    <tr>
+      <td><strong>${esc(r.brand)}</strong></td>
+      <td>${esc(r.mfr)}</td>
+      <td class="num">${fmtMetricUK(r.vol)}</td>
+      <td class="num">${r.growth == null ? "—" : deltaHTML(r.growth, 0, "%")}</td>
+      <td class="num"><strong>${r.ms.toFixed(1)}%</strong></td>
+      <td class="num">${r.dms == null ? "—" : deltaHTML(r.dms, 0, "pt")}</td>
+    </tr>`).join("");
+}
+
+function renderUK() {
+  const win = ukWindows();
+  const cur = ukRows(win.cur);
+  const prev = ukRows(win.prev);
+  $("uk-caption").textContent =
+    `${win.label}: ${windowLabel(win.cur)}` +
+    (win.prev.length ? `  ·  compared with ${win.vs}: ${windowLabel(win.prev)}` : "");
+  renderUKKPIs(win, cur, prev);
+  renderUKRegion(win, cur, prev);
+  renderUKMfrTrend();
+  renderUKCatMix();
+  renderUKMovers(win, cur, prev);
+  renderUKBrandTable(win, cur, prev);
+}
+
+function setupUK() {
+  setMselOptions("ukCategory", DATA.meta.categories);
+  setMselOptions("ukRegion", DATA.meta.regions);
+  for (const [id, key] of [["uk-period", "period"], ["uk-metric", "metric"]]) {
+    $(id).addEventListener("change", () => {
+      ukState[key] = $(id).value;
+      saveFilters();
+      renderUK();
+    });
+  }
+  $("uk-clear").addEventListener("click", () => {
+    SEL.ukRegion.clear();
+    SEL.ukCategory.clear();
+    updateMselUI("ukRegion");
+    updateMselUI("ukCategory");
+    ukState.period = "mat";
+    ukState.metric = "factored_units";
+    $("uk-period").value = "mat";
+    $("uk-metric").value = "factored_units";
+    saveFilters();
+    renderUK();
+  });
+}
+
+// ---------- page navigation (hash routing) ----------
+
+function currentPage() {
+  const h = location.hash.replace(/^#\/?/, "");
+  return ["uk", "ireland", "guidelines"].includes(h) ? h : "home";
+}
+
+function showPage() {
+  const p = currentPage();
+  $("page-landing").hidden = p !== "home";
+  $("page-uk").hidden = p !== "uk";
+  $("page-ireland").hidden = p !== "ireland";
+  const onDash = p === "guidelines";
+  $("dashboard").hidden = !(onDash && DATA);
+  $("loading").hidden = !(onDash && !DATA);
+  $("header-tools").hidden = !onDash;
+  document
+    .querySelectorAll("#top-nav a")
+    .forEach((a) => a.classList.toggle("active", a.dataset.page === p));
+  // charts need visible canvases to size correctly — rebuild on entry
+  if (onDash && DATA) render();
+  if (p === "uk" && DATA) renderUK();
+}
+
+window.addEventListener("hashchange", showPage);
+
 (async function init() {
+  showPage(); // landing (or hash target) appears immediately while data loads
   try {
     await loadData();
     setupFilters();
     restoreFilters();
-    $("loading").hidden = true;
-    $("dashboard").hidden = false;
-    render();
+    setupUK();
+    showPage(); // reveal the dashboard (or UK page) now that data is ready
   } catch (e) {
     $("loading").textContent = "Failed to load data: " + e.message;
+    $("loading").hidden = currentPage() !== "guidelines";
   }
 })();

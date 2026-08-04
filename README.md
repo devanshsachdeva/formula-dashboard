@@ -20,6 +20,12 @@ data file to keep in sync.
 - Source files live in `data/`:
   - `data/GL Dataset Base.xlsx`
   - `data/Performance.xlsx`  (performance rows on the `PivotTable1` sheet)
+  - `data/Updated ICB HDM Structure.xlsx` — ICB → HDM ownership. When present
+    it **overrides** the GL workbook's HDM column everywhere (HDM slicers on
+    both pages, tables, tracker). Region header rows in the file are ignored;
+    ICBs it doesn't list fall back to the GL workbook's HDM. HDM is treated
+    as org reference data, so reshuffles do NOT create change-tracker events.
+    Edit + reload hot-refreshes like the other workbooks.
 - **To update the data**, just edit those workbooks (or drop in new versions
   with the same file names) and reload the page. The server notices the
   changed modified-time/size and re-reads the workbooks in memory on the next
@@ -39,7 +45,34 @@ data file to keep in sync.
 |---|---|
 | `process_data.py` | Reads both workbooks, aggregates performance to ICB × Category × Brand × Month, summarises guidelines to ICB level ("Mixed: …" where sub-CCGs differ), merges, writes `data/dashboard_data.json` |
 | `app.py` | Flask server: static frontend + `/api/data` + `/api/refresh` |
-| `static/` | Frontend: vanilla JS + Chart.js (CDN) |
+| `static/js/shared.js` | Colours, global state, slicer component, data loading, format helpers (loaded first) |
+| `static/js/guidelines.js` | Guidelines page (charts, tracker, tables, persistence) |
+| `static/js/uk.js` | UK Performance page (own slicers + charts) |
+| `static/js/ireland.js` | Ireland page placeholder + build plan |
+| `static/js/main.js` | Hash routing + app start-up (loaded last) |
+| `LEARNING-GUIDE.md` | Plain-English walkthrough: how charts, labels and slicers are built |
+
+## Row-level security (HDM "view as")
+On first load a **login gate** asks who you're viewing as — **All ICBs (admin)**
+or one of the HDMs. The choice is enforced at the **data layer**: the payload is
+filtered to that HDM's ICBs (from the Updated ICB HDM Structure mapping) before
+any page reads it, so every chart, table, KPI and slicer is scoped and the user
+**cannot widen past their own ICBs** (the ICB/region/CCG slicers only offer
+in-scope values). It's *soft* RLS — a scoping layer, not authentication (no
+passwords); anyone can pick any HDM. The current scope shows as a 🔒 badge in
+the header; click it to switch (admin resets to full access). The choice
+persists in localStorage. A data **Refresh** keeps the active scope.
+
+## Pages & navigation
+Hash-routed single-page app with a top navigation bar:
+- **Home** (`#/`, default) — landing page with cards linking to each section.
+- **UK Performance** (`#/uk`) — prescribing performance dashboard: period
+  controls (MAT/QTR/YTD/All × KGs/£/units × region × category), KPI cards with
+  growth, volume by NHS region, manufacturer MS% trend, category mix by month,
+  top/bottom ICB movers, and a brand league table (volume, Δ%, MS%, ΔMS%).
+- **Ireland Performance** (`#/ireland`) — placeholder, to be built.
+- **Guidelines** (`#/guidelines`) — the full dashboard (everything below).
+The Refresh-data button and build timestamp only show on the Guidelines page.
 
 ## Dashboard features
 
@@ -182,6 +215,12 @@ Behaviour:
   each with its own × clear button. The category cards are multi-select too —
   click cards to combine EHF/AAF/RICE, and each active card has its own ×.
   "Clear all" resets everything at once.
+- **CCG filter**: both pages have a CCG slicer (the sub-ICB prescribing unit —
+  the performance workbook's `PCO` column, 152 values). Each CCG belongs to one
+  ICB, so selecting CCGs scopes performance to those units and the guideline
+  sections to the parent ICB(s). Note the performance CCG (PCO) and the GL
+  workbook's own `CCG - PCO STHA` are different breakdowns; the filter uses the
+  performance PCO since that's what the charts on both pages measure.
 - **Slicers cross-filter each other**: every slicer's available options are the
   values still reachable under the OTHER slicers' current selections (its own
   selection is ignored, so you can always widen it). E.g. picking Manufacturer =
