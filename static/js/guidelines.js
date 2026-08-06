@@ -1,262 +1,34 @@
-/* Specialist Formula Dashboard — client logic */
-"use strict";
-
-Chart.register(ChartDataLabels);
-Chart.defaults.set("plugins.datalabels", { display: false });
-
-// Manufacturer colour families:
-//   Nutricia -> purples · Nestlé -> greys · MJN -> Nutramigen blues + Puramino
-//   orange · Abbott -> green · Other -> tan
-const BRAND_COLORS = {
-  NEOCATE: "#9333ea",    // Nutricia — warm purple (kept away from blue)
-  PEPTI: "#d946ef",      // Nutricia — magenta
-  NUTRAMIGEN: "#1d4ed8", // MJN — royal blue
-  PURAMINO: "#f97316",   // MJN — orange
-  ALTHERA: "#475569",    // Nestlé — dark grey
-  ALFAMINO: "#94a3b8",   // Nestlé — light grey
-  ARIZE: "#16a34a",      // Abbott — green
-  OTHER: "#a16207",      // tan
-};
-const MFR_COLORS = {
-  NUTRICIA: "#9333ea",
-  NESTLE: "#6b7280",
-  MJN: "#1d4ed8",
-  ABBOTT: "#16a34a",
-  OTHER: "#a16207",
-};
-const CAT_COLORS = { EHF: "#2563eb", AAF: "#f97316", RICE: "#a855f7" };
-const FALLBACK = ["#64748b", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
-// client-line products: shades within each manufacturer family
-const PRODUCT_COLORS = {
-  // Nutricia — Neocate warm purples (dark -> light), no blue-violets
-  "NEOCATE LCP": "#7e22ce",
-  "NEOCATE SYNEO": "#9333ea",
-  "NEOCATE JUNIOR": "#a855f7",
-  "NEOCATE SPOON": "#c084fc",
-  "NEOCATE ADVANCE": "#d8b4fe",
-  // Nutricia — Pepti magentas (dark -> light)
-  "PEPTI 1": "#a21caf",
-  "PEPTI 2": "#d946ef",
-  "PEPTI SYNEO": "#e879f9",
-  "PEPTI JUNIOR": "#f5d0fe",
-  // MJN — Nutramigen cool blues + Puramino orange
-  "NUTRAMIGEN 1-MJN": "#1e3a8a",
-  "NUTRAMIGEN 2-MJN": "#3b82f6",
-  "NUTRAMIGEN 3-MJN": "#93c5fd",
-  "PURAMINO": "#f97316",
-  // Nestlé greys
-  "ALTHERA": "#475569",
-  "ALFAMINO": "#94a3b8",
-  // Abbott green
-  "SIMILAC ARIZE": "#16a34a",
-  // Other — tans
-  "PREGESTIMIL": "#a16207",
-  "ELECARE": "#ca8a04",
-};
-const FAR_FUTURE = "2049-01-01"; // 2050-01-01 entries are "no date" placeholders
-
-let DATA = null;            // full payload from /api/data
-let trendDim = "brand";     // brand | manufacturer | category
-let trendValue = "actual";  // actual | ms — monthly trend switch
-let explorerMode = "actual"; // actual | ms — interval explorer switch
-let glSort = { key: "ICB", dir: 1 };
-const charts = {};
-
-// multi-select filter state: empty Set = "all"
-const SEL = {
-  region: new Set(),
-  icb: new Set(),
-  manufacturer: new Set(),
-  brand: new Set(),
-  hdm: new Set(),
-  category: new Set(), // driven by the category cards
-  // UK Performance page slicers (independent of the Guidelines page)
-  ukRegion: new Set(),
-  ukCategory: new Set(),
-};
-
-const $ = (id) => document.getElementById(id);
-const singles = {
-  metric: () => $("f-metric").value,
-  period: () => $("f-period").value,
-};
-
-/** The drill-down ICB — only defined when exactly one ICB is selected. */
-function singleICB() {
-  return SEL.icb.size === 1 ? [...SEL.icb][0] : "";
-}
-
-function catLabel() {
-  return SEL.category.size ? [...SEL.category].sort().join(" + ") : "all categories";
-}
-
-/** Category the interval visuals follow: the (first) selected card, else EHF. */
-function explorerCategory() {
-  for (const c of ["EHF", "AAF", "RICE"]) if (SEL.category.has(c)) return c;
-  return "EHF";
-}
-
-function esc(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// ---------- lookup maps ----------
-
-let ICB_REGION = new Map();   // icb -> region
-let HDM_ICBS = new Map();     // hdm -> Set(icb)
-let PRODUCT_BRAND = new Map(); // client-line product -> brand
-
-function buildMaps() {
-  ICB_REGION = new Map();
-  PRODUCT_BRAND = new Map();
-  for (const r of DATA.performance) {
-    if (!ICB_REGION.has(r.icb)) ICB_REGION.set(r.icb, r.region);
-    if (!PRODUCT_BRAND.has(r.product)) PRODUCT_BRAND.set(r.product, r.brand);
-  }
-  HDM_ICBS = new Map();
-  for (const g of DATA.gl_detail) {
-    const h = (g.HDM || "").trim();
-    if (!h) continue;
-    if (!HDM_ICBS.has(h)) HDM_ICBS.set(h, new Set());
-    HDM_ICBS.get(h).add(g.ICB);
-  }
-}
-
-/** Union of ICBs covered by the selected HDMs (null = no HDM filter). */
-function hdmICBUnion() {
-  if (!SEL.hdm.size) return null;
-  const u = new Set();
-  for (const h of SEL.hdm) for (const i of HDM_ICBS.get(h) || []) u.add(i);
-  return u;
-}
-
-/** ICBs allowed by the region + HDM filters (ignores the ICB filter itself). */
-function icbListForDropdown() {
-  let list = DATA.meta.icbs;
-  if (SEL.region.size) list = list.filter((i) => SEL.region.has(ICB_REGION.get(i)));
-  const hu = hdmICBUnion();
-  if (hu) list = list.filter((i) => hu.has(i));
-  return list;
-}
-
-// ---------- multi-select dropdown component ----------
-
-const MSEL_DEFS = [
-  { key: "category", placeholder: "All categories" },
-  { key: "region", placeholder: "All regions" },
-  { key: "icb", placeholder: "All ICBs" },
-  { key: "manufacturer", placeholder: "All manufacturers" },
-  { key: "brand", placeholder: "All brands" },
-  { key: "hdm", placeholder: "All HDMs" },
-  { key: "ukCategory", placeholder: "All categories" },
-  { key: "ukRegion", placeholder: "All regions" },
-  { key: "ukicb", placeholder: "All ICBs" },
-  { key: "ukmanufacturer", placeholder: "All manufacturers" },
-  { key: "ukbrand", placeholder: "All brands" },
-  { key: "ukhdm", placeholder: "All HDMs" },
-];
-
-const mselEl = (key) => $("ms-" + key);
-
-function setMselOptions(key, options) {
-  const el = mselEl(key);
-  el._optionList = options;
-  // prune selections that are no longer available
-  for (const v of [...SEL[key]]) if (!options.includes(v)) SEL[key].delete(v);
-  const panel = el.querySelector(".msel-panel");
-  panel.innerHTML =
-    `<div class="msel-actions">
-       <button type="button" class="msel-all">Select all</button>
-       <button type="button" class="msel-none">Clear</button>
-     </div>` +
-    options
-      .map(
-        (o) => `<label class="msel-opt"><input type="checkbox" value="${esc(o)}"${
-          SEL[key].has(o) ? " checked" : ""
-        }><span>${esc(o)}</span></label>`
-      )
-      .join("");
-  panel.querySelectorAll("input").forEach((cb) =>
-    cb.addEventListener("change", () => {
-      if (cb.checked) SEL[key].add(cb.value);
-      else SEL[key].delete(cb.value);
-      updateMselUI(key);
-      onFilterChange(key);
-    })
-  );
-  panel.querySelector(".msel-all").addEventListener("click", (e) => {
-    e.stopPropagation();
-    SEL[key] = new Set(el._optionList);
-    updateMselUI(key);
-    onFilterChange(key);
-  });
-  panel.querySelector(".msel-none").addEventListener("click", (e) => {
-    e.stopPropagation();
-    SEL[key].clear();
-    updateMselUI(key);
-    onFilterChange(key);
-  });
-  updateMselUI(key);
-}
-
-function updateMselUI(key) {
-  const el = mselEl(key);
-  const def = MSEL_DEFS.find((d) => d.key === key);
-  const n = SEL[key].size;
-  el.querySelector(".msel-btn").textContent =
-    n === 0 ? def.placeholder : n === 1 ? [...SEL[key]][0] : n + " selected";
-  el.querySelector(".msel-btn").classList.toggle("active", n > 0);
-  // always visible; disabled (grey) when there is nothing to clear
-  const clear = el.querySelector(".msel-clear");
-  clear.hidden = false;
-  clear.disabled = n === 0;
-  el.querySelectorAll(".msel-panel input").forEach((cb) => (cb.checked = SEL[key].has(cb.value)));
-}
-
-function closeAllMsels() {
-  document.querySelectorAll(".msel-panel").forEach((p) => (p.hidden = true));
-}
-
-function initMsels() {
-  for (const def of MSEL_DEFS) {
-    const el = mselEl(def.key);
-    el.querySelector(".msel-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      const panel = el.querySelector(".msel-panel");
-      const wasOpen = !panel.hidden;
-      closeAllMsels();
-      panel.hidden = wasOpen;
-    });
-    el.querySelector(".msel-clear").addEventListener("click", (e) => {
-      e.stopPropagation();
-      SEL[def.key].clear();
-      updateMselUI(def.key);
-      onFilterChange(def.key);
-    });
-  }
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".msel")) closeAllMsels();
-  });
-}
-
-function onFilterChange(key) {
-  // UK-page slicers only re-render the UK page
-  if (key === "ukRegion" || key === "ukCategory") {
-    renderUK();
-    saveFilters();
-    return;
-  }
-  // guidelines slicers: cross-filtering + re-render are handled in render()
-  render();
-}
-
+/* ============================================================================
+   guidelines.js — everything on the GUIDELINES page (#/guidelines)
+   ----------------------------------------------------------------------------
+   Sections in this file, top to bottom:
+   1. CROSS-FILTERING  — each slicer's option list is recomputed from what
+                         the OTHER slicers allow (Power-BI style).
+   2. PERIOD WINDOWS   — turns "MAT / QTR / YTD / Custom" into two lists of
+                         months: the current window and the comparison window.
+   3. ROW FILTERING    — rowsFor() picks the performance rows that match the
+                         current slicers + period.
+   4. KPI CARDS        — the EHF/AAF/RICE cards with growth and top-brand MS%.
+   5. CHARTS           — upsertChart() (create-or-replace a Chart.js chart),
+                         the interval-band + marker plugins, point labels,
+                         monthly trend, category MS% bars, donuts, top ICBs,
+                         first-line exclusive trend, exclusive table.
+                         NOTE: upsertChart() and pointLabels() are defined
+                         here but the UK page uses them too.
+   6. CHANGE TRACKER   — version history, interval performance, explorer.
+   7. GUIDELINES TABLE — the sortable/searchable register.
+   8. PERSISTENCE      — saves every filter to localStorage so a page reload
+                         puts you back where you were.
+   9. SETUP + RENDER   — wires all the controls once, and render() redraws
+                         every component when anything changes.
+   ========================================================================== */
 // ---------- slicer cross-filtering ----------
 // Every slicer constrains the others: a slicer's available options are the
 // values still reachable under all the OTHER slicers' current selections
 // (its own selection is ignored so you can always widen it). Selected values
 // are never pruned, so choices stick even if they'd yield no rows.
 
-const ALL_SLICERS = ["category", "region", "icb", "manufacturer", "brand", "hdm"];
+const ALL_SLICERS = ["category", "region", "icb", "ccg", "manufacturer", "brand", "hdm"];
 let _lastSelSig = null;
 
 function selSignature() {
@@ -272,6 +44,7 @@ function rowsMatching(excludeKey) {
       (excludeKey === "category" || !SEL.category.size || SEL.category.has(r.category)) &&
       (excludeKey === "region" || !SEL.region.size || SEL.region.has(r.region)) &&
       (excludeKey === "icb" || !SEL.icb.size || SEL.icb.has(r.icb)) &&
+      (excludeKey === "ccg" || !SEL.ccg.size || SEL.ccg.has(r.ccg)) &&
       (excludeKey === "manufacturer" || !SEL.manufacturer.size || SEL.manufacturer.has(r.manufacturer)) &&
       (excludeKey === "brand" || !SEL.brand.size || SEL.brand.has(r.brand)) &&
       (!hu || hu.has(r.icb))
@@ -316,33 +89,6 @@ function drillToICB(icb) {
   }
   updateMselUI("icb");
   render();
-}
-
-// ---------- data loading ----------
-
-async function loadData() {
-  const res = await fetch("/api/data");
-  if (!res.ok) throw new Error("Failed to load /api/data: " + res.status);
-  DATA = await res.json();
-  buildMaps();
-  _lastSelSig = null; // force slicer option lists to rebuild against fresh data
-  $("generated-at").textContent = "Data built " + DATA.generated_at.replace("T", " ");
-}
-
-async function refreshData() {
-  const btn = $("refresh-btn");
-  btn.disabled = true;
-  btn.textContent = "Refreshing…";
-  try {
-    await fetch("/api/refresh", { method: "POST" });
-    await loadData();
-    render();
-  } catch (e) {
-    alert("Refresh failed: " + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = "&#8635; Refresh data";
-  }
 }
 
 // ---------- period windows (MAT / Rolling QTR / YTD) ----------
@@ -390,61 +136,13 @@ function rowsFor(win, { ignoreCategory = false, ignoreBrandDims = false } = {}) 
       set.has(r.date) &&
       (!SEL.region.size || SEL.region.has(r.region)) &&
       (!SEL.icb.size || SEL.icb.has(r.icb)) &&
+      (!SEL.ccg.size || SEL.ccg.has(r.ccg)) &&
       (!hu || hu.has(r.icb)) &&
       (ignoreCategory || !SEL.category.size || SEL.category.has(r.category)) &&
       (ignoreBrandDims ||
         ((!SEL.manufacturer.size || SEL.manufacturer.has(r.manufacturer)) &&
           (!SEL.brand.size || SEL.brand.has(r.brand))))
   );
-}
-
-function sumBy(rows, keyFn, metric) {
-  const out = new Map();
-  for (const r of rows) {
-    const k = keyFn(r);
-    out.set(k, (out.get(k) || 0) + r[metric]);
-  }
-  return out;
-}
-
-// ---------- formatting ----------
-
-function fmtNum(n) {
-  if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
-  return n.toFixed(0);
-}
-function metricSuffix() {
-  const m = singles.metric();
-  return m === "factored_units" ? " KGs" : m === "units" ? " units" : "";
-}
-function fmtMetric(n) {
-  return (singles.metric() === "value" ? "£" : "") + fmtNum(n) + (singles.metric() === "value" ? "" : metricSuffix());
-}
-function monthLabel(iso) {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
-}
-function quarterKey(iso) {
-  return iso.slice(0, 4) + "-Q" + (Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1);
-}
-function colorFor(key, mode, i) {
-  if (mode === "product") return PRODUCT_COLORS[key] || FALLBACK[i % FALLBACK.length];
-  const table = mode === "manufacturer" ? MFR_COLORS : mode === "category" ? CAT_COLORS : BRAND_COLORS;
-  return table[key] || FALLBACK[i % FALLBACK.length];
-}
-function growthHTML(cur, prev, vsLabel) {
-  if (!prev) return `<span class="growth flat">no comparison</span>`;
-  const pct = ((cur - prev) / prev) * 100;
-  const cls = pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat";
-  const arrow = pct > 0.5 ? "▲" : pct < -0.5 ? "▼" : "▬";
-  return `<span class="growth ${cls}">${arrow} ${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% vs ${vsLabel}</span>`;
-}
-
-// visible ICBs under region/HDM/ICB filters (for guideline sections)
-function visibleICBs() {
-  if (SEL.icb.size) return new Set(SEL.icb);
-  return new Set(icbListForDropdown());
 }
 
 // ---------- per-category KPI cards ----------
@@ -483,7 +181,10 @@ function renderCatCards(win) {
 
     const card = document.createElement("div");
     card.className = "card kpi cat-card" + (active ? " active" : "");
-    card.style.borderTopColor = CAT_COLORS[cat] || "#94a3b8";
+    // top colour shade auto-follows the category's LEADING brand (MJN-blue,
+    // Nutricia-purple, Nestlé-pink…), falling back to the category colour.
+    const accent = top ? colorFor(top[0], "brand", 0) : (CAT_COLORS[cat] || "#94a3b8");
+    applyKpiAccent(card, accent);
     card.innerHTML = `
       ${active ? `<button class="card-clear" title="Clear ${cat} filter">&times;</button>` : ""}
       <span class="kpi-label">${cat} — ${win.label}</span>
@@ -529,6 +230,7 @@ function upsertChart(id, config) {
     delete charts[id];
   }
   charts[id] = new Chart($(id).getContext("2d"), config);
+  ensureCopyButton(id); // every visual gets a copy-as-image button
 }
 
 /** Guideline state active for an ICB at a given date (from the history log,
@@ -548,9 +250,8 @@ function activeStateFor(icb, dateISO) {
 
 /** Shaded guideline-interval bands for a months window, labelled with the
  *  exclusive / 1st-line product of the category the visuals follow. */
-function bandsFor(icb, months) {
+function bandsFor(icb, months, cat = explorerCategory()) {
   if (!icb || !months.length) return [];
-  const cat = explorerCategory();
   const last = months[months.length - 1];
   const bands = [];
   trackerIntervals(icb).forEach((iv, i) => {
@@ -654,8 +355,7 @@ const glMarkerPlugin = {
   },
 };
 
-function glMarksFor(months) {
-  const icb = singleICB();
+function glMarksFor(months, icb = singleICB()) {
   if (!icb) return [];
   const monthIdx = new Map(months.map((m, i) => [m.slice(0, 7), i]));
   const marks = [];
@@ -830,7 +530,11 @@ function renderDonut(id, rows, keyProp, colorMode) {
         {
           data: entries.map(([, v]) => v),
           backgroundColor: entries.map(([k], i) => colorFor(k, colorMode, i)),
-          borderWidth: 1,
+          // shadcn-style ring: white gaps between rounded segments
+          borderColor: "#ffffff",
+          borderWidth: 2,
+          borderRadius: 6,
+          spacing: 2,
           datalabels: {
             display: (ctx) => total && (ctx.dataset.data[ctx.dataIndex] / total) * 100 >= 4,
             color: "#fff",
@@ -843,6 +547,7 @@ function renderDonut(id, rows, keyProp, colorMode) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      cutout: "62%", // wider centre hole = the modern thin-ring look
       plugins: {
         legend: { position: "right", labels: { boxWidth: 12, usePointStyle: true } },
         tooltip: {
@@ -871,15 +576,15 @@ function renderTopICBs(rows) {
         {
           label: metric,
           data: top.map(([, v]) => v),
-          backgroundColor: "#2563eb",
-          borderRadius: 4,
+          backgroundColor: "#4f46e5",
+          borderRadius: 6,
           datalabels: {
             display: true,
             anchor: "end",
             align: "end",
             offset: 2,
             clamp: true,
-            color: "#1a2333",
+            color: themeInk(),
             font: { size: 10, weight: "700" },
             formatter: (v) => fmtNum(v),
           },
@@ -900,6 +605,176 @@ function renderTopICBs(rows) {
       },
       onClick: (evt, els) => {
         if (els.length) drillToICB(top[els[0].index][0]);
+      },
+    },
+  });
+}
+
+/* ICB MAT year-on-year — MJN EXCLUSIVES ONLY (combo: grouped bars + line).
+   Scope: the ICBs where the selected category's guideline is Exclusive AND
+   the designated 1st-line product is an MJN brand (Puramino for AAF,
+   Nutramigen for EHF). Those ICBs sit on the X axis.
+   For each ICB, two bars — MAT PY (faded) vs MAT CY (solid), coloured in the
+   designated MJN brand's family colour — plus a growth line (%) on a second
+   y-axis.
+   Toggles: AAF / EHF (default AAF) and Actuals / MS%:
+     Actuals → bars = the MJN product's volume in that ICB's category market
+     MS%     → bars = the MJN product's share of that market; line = Δ share %
+   Always MAT-vs-prior-MAT (ignores the Period filter) and respects the
+   region/ICB/HDM slicers via visibleICBs(); brand/manufacturer/category
+   slicers are ignored — the chart fixes its own category + brand focus. */
+let icbMatCat = "AAF";      // AAF | EHF — which exclusivity network (default AAF)
+let icbMatValue = "actual"; // actual | ms
+
+/** ICBs where `cat`'s guideline is Exclusive to an MJN product ->
+ *  the designated MJN brand(s) for that ICB. */
+function mjnExclusiveICBs(cat) {
+  const vis = visibleICBs();
+  const map = new Map(); // icb -> Set(MJN brands designated 1st-line)
+  for (const g of DATA.guidelines) {
+    if (!vis.has(g.ICB)) continue;
+    const status = ((cat === "EHF" ? g.ehf_gl : g.aaf_gl) || "").trim().toUpperCase();
+    if (status !== "EXCLUSIVE") continue;
+    const first = cat === "EHF" ? g.ehf_first : g.aaf_first;
+    const mjn = brandsFromProduct(first).filter((b) => MJN_BRANDS.has(b));
+    if (mjn.length) map.set(g.ICB, new Set(mjn));
+  }
+  return map;
+}
+
+function renderICBMatYoY() {
+  const metric = singles.metric();
+  const cat = icbMatCat;
+  const isMS = icbMatValue === "ms";
+  const months = DATA.meta.months;
+  const cyMonths = months.slice(-12);                  // MAT CY = last 12 months
+  const pyMonths = months.slice(-24, -12);             // MAT PY = the 12 before
+  const cySet = new Set(cyMonths), pySet = new Set(pyMonths);
+
+  const scope = mjnExclusiveICBs(cat);                 // icb -> designated MJN brand(s)
+
+  // per ICB and window: the MJN product's volume + the whole category total
+  const mjnOf = new Map(), totOf = new Map();          // "win icb" -> volume
+  for (const r of DATA.performance) {
+    if (r.category !== cat || !scope.has(r.icb)) continue;
+    const win = cySet.has(r.date) ? "cy" : pySet.has(r.date) ? "py" : null;
+    if (!win) continue;
+    const kT = win + " " + r.icb;
+    totOf.set(kT, (totOf.get(kT) || 0) + r[metric]);
+    if (scope.get(r.icb).has(r.brand)) mjnOf.set(kT, (mjnOf.get(kT) || 0) + r[metric]);
+  }
+
+  // bar value per ICB: MJN volume, or MJN share of the ICB's category market
+  const val = (win, k) => {
+    const m = mjnOf.get(win + " " + k) || 0;
+    if (!isMS) return m;
+    const t = totOf.get(win + " " + k) || 0;
+    return t ? (m / t) * 100 : 0;
+  };
+  // growth line (always %): volume growth, or the change in share
+  const growth = (k) => {
+    if (isMS) return val("cy", k) - val("py", k);
+    const p = mjnOf.get("py " + k) || 0;
+    return p ? (((mjnOf.get("cy " + k) || 0) - p) / p) * 100 : null;
+  };
+
+  // biggest current-year bar first
+  const keys = [...scope.keys()].sort((a, b) => val("cy", b) - val("cy", a));
+  // each ICB's bar takes its designated brand's colour (Puramino orange /
+  // Nutramigen blue) — faded for PY, solid for CY
+  const brandOf = (k) => [...scope.get(k)][0];
+  const solid = keys.map((k) => BRAND_COLORS[brandOf(k)] || "#4338ca");
+  const faded = solid.map((c) => withAlpha(c, 0.35));
+  const products = [...new Set(keys.map(brandOf))].join(" / ") || "—";
+
+  $("icb-mat-hint").textContent =
+    `— ${keys.length} ICB${keys.length === 1 ? "" : "s"} where ${cat} is exclusive to ${products} · ` +
+    `MAT CY (${monthLabel(cyMonths[0])}–${monthLabel(cyMonths[11])}) vs MAT PY (${monthLabel(pyMonths[0])}–${monthLabel(pyMonths[11])}) · ` +
+    (isMS ? "bars = MJN MS%, line = Δ share %" : "bars = MJN volume, line = growth %") +
+    " · click a bar to drill in";
+
+  upsertChart("chart-icb-mat", {
+    type: "bar",
+    data: {
+      labels: keys,
+      datasets: [
+        {
+          type: "bar", label: "MAT PY", yAxisID: "y", order: 3,
+          data: keys.map((k) => val("py", k)),
+          backgroundColor: faded, borderRadius: 6,
+          datalabels: {
+            display: true, // global default is off, so opt in explicitly
+            anchor: "end", align: "top", offset: 1, color: themeInkSoft(),
+            font: { size: 9, weight: "600" },
+            formatter: (v) => (isMS ? v.toFixed(1) + "%" : fmtNum(v)),
+          },
+        },
+        {
+          type: "bar", label: "MAT CY", yAxisID: "y", order: 3,
+          data: keys.map((k) => val("cy", k)),
+          backgroundColor: solid, borderRadius: 6,
+          datalabels: {
+            display: true,
+            anchor: "end", align: "top", offset: 1, color: themeInk(),
+            font: { size: 9, weight: "700" },
+            formatter: (v) => (isMS ? v.toFixed(1) + "%" : fmtNum(v)),
+          },
+        },
+        {
+          // growth is always orange across the report
+          type: "line", label: "Growth (%)", yAxisID: "y1", order: 1,
+          data: keys.map(growth),
+          borderColor: GROWTH_COLOR, backgroundColor: GROWTH_COLOR,
+          borderWidth: 2, tension: 0.3, pointRadius: 3, pointHoverRadius: 5, spanGaps: false,
+          datalabels: {
+            display: true,
+            align: "top", offset: 6, color: growthLabelColor(),
+            font: { size: 9, weight: "700" },
+            formatter: (v) => (v == null ? null : (v >= 0 ? "+" : "") + v.toFixed(1) + "%"),
+          },
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 18 } },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        // bars are coloured per designated brand, so use a convention legend
+        legend: {
+          position: "bottom",
+          labels: {
+            boxWidth: 12, usePointStyle: true,
+            generateLabels: (chart) => [
+              { text: "MAT PY (faded)", fillStyle: "rgba(100,116,139,0.4)", strokeStyle: "rgba(100,116,139,0.4)", pointStyle: "rect", datasetIndex: 0, hidden: !chart.isDatasetVisible(0) },
+              { text: "MAT CY (solid)", fillStyle: themeInkSoft(), strokeStyle: themeInkSoft(), pointStyle: "rect", datasetIndex: 1, hidden: !chart.isDatasetVisible(1) },
+              { text: isMS ? "Δ share (%)" : "Growth (%)", fillStyle: GROWTH_COLOR, strokeStyle: GROWTH_COLOR, pointStyle: "line", datasetIndex: 2, hidden: !chart.isDatasetVisible(2) },
+            ],
+          },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0].label + " — " + brandOf(items[0].label) + " exclusive",
+            label: (c) => {
+              if (c.dataset.type === "line")
+                return ` ${isMS ? "Δ share" : "Growth"}: ${c.parsed.y == null ? "n/a" : (c.parsed.y >= 0 ? "+" : "") + c.parsed.y.toFixed(1) + "%"}`;
+              return ` ${c.dataset.label}: ${isMS ? c.parsed.y.toFixed(1) + "%" : fmtMetric(c.parsed.y)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        y: { beginAtZero: true, position: "left",
+             title: { display: true, text: isMS ? "MJN MS%" : (metric === "value" ? "MJN value" : "MJN volume") },
+             ticks: { callback: (v) => (isMS ? v + "%" : fmtNum(v)) } },
+        y1: { position: "right", grid: { drawOnChartArea: false },
+              title: { display: true, text: isMS ? "Δ share (%)" : "Growth (%)" },
+              ticks: { callback: (v) => (v >= 0 ? "+" : "") + v + "%" } },
+        x: { grid: { display: false },
+             ticks: { maxRotation: 60, minRotation: 45, autoSkip: false, font: { size: 10 } } },
+      },
+      onClick: (evt, els) => {
+        if (els.length) drillToICB(keys[els[0].index]);
       },
     },
   });
@@ -977,14 +852,14 @@ function renderGLTimeline() {
         {
           label: "Guidelines published",
           data: allQ.map((q) => pubs.get(q) || 0),
-          backgroundColor: "#2563eb",
-          borderRadius: 3,
+          backgroundColor: "#4f46e5",
+          borderRadius: 6,
         },
         {
           label: "Reviews falling due",
           data: allQ.map((q) => reviews.get(q) || 0),
           backgroundColor: allQ.map((q) => (q < nowQ ? "#dc2626" : "#f59e0b")),
-          borderRadius: 3,
+          borderRadius: 6,
         },
       ],
     },
@@ -1170,8 +1045,8 @@ function renderExclusiveTrend() {
       pointRadius: 0,
       pointHitRadius: 8,
       borderWidth: hi ? 3.5 : 1.5,
-      // label the focus brand's line(s); in brand mode (few lines) label all
-      datalabels: !isProd || hi ? pointLabels(col, isMS) : { display: false },
+      // every line is labelled (the focus brand's lines are drawn thicker)
+      datalabels: pointLabels(col, isMS),
     };
   });
 
@@ -1184,8 +1059,8 @@ function renderExclusiveTrend() {
         const t = monthTotal.get(m) || 0;
         return t ? ((compNum.get(m) || 0) / t) * 100 : 0;
       }),
-      borderColor: "#111827",
-      backgroundColor: "#111827",
+      borderColor: themeContrast(),
+      backgroundColor: themeContrast(),
       borderDash: [6, 3],
       borderWidth: 3,
       fill: false,
@@ -1718,7 +1593,7 @@ function renderTrackerDetail(icb) {
                     <td>${
                       cur.topBrand
                         ? `${esc(cur.topBrand)} <strong>${cur.topMS.toFixed(1)}%</strong>${
-                            msPrev != null ? deltaHTML(cur.topMS, msPrev, "pt") : ""
+                            msPrev != null ? deltaHTML(cur.topMS, msPrev, "%") : ""
                           }`
                         : "—"
                     }${glFirst ? `<div class="hint">GL 1st: ${esc(glFirst)}</div>` : ""}</td>`;
@@ -1732,7 +1607,7 @@ function renderTrackerDetail(icb) {
     </div>
     <p class="hint" style="margin:8px 2px 0">
       Intervals are split at guideline publication dates and tracked changes.
-      Δ% on avg volume compares with the previous interval; Δpt compares the same brand's MS% with the previous interval.
+      Δ% on avg volume compares with the previous interval; Δ% on MS compares the same brand's MS% with the previous interval.
     </p>`;
 
   const explorerCat = explorerCategory();
@@ -1961,8 +1836,23 @@ function saveFilters() {
       exclProduct,
       exclDim,
       exclTrendValue,
+      icbMatCat,
+      icbMatValue,
       ukPeriod: ukState.period,
       ukMetric: ukState.metric,
+      ukCatMode: ukState.catMode,
+      ukTrendDim: ukState.trendDim,
+      ukTrendValue: ukState.trendValue,
+      ukMatDim: ukState.matDim,
+      ukMatValue: ukState.matValue,
+      ukLeagueDim: ukState.leagueDim,
+      iePeriod: ieState.period,
+      ieMetric: ieState.metric,
+      ieTrendDim: ieState.trendDim,
+      ieTrendValue: ieState.trendValue,
+      ieMatDim: ieState.matDim,
+      ieMatValue: ieState.matValue,
+      ieLeagueDim: ieState.leagueDim,
     };
     localStorage.setItem("dashboard-filters", JSON.stringify(state));
   } catch (_) { /* private mode etc. — ignore */ }
@@ -1987,8 +1877,75 @@ function restoreFilters() {
     if (state.exclProduct) exclProduct = state.exclProduct;
     if (state.exclDim) exclDim = state.exclDim;
     if (state.exclTrendValue) exclTrendValue = state.exclTrendValue;
+    if (state.icbMatCat) {
+      icbMatCat = state.icbMatCat;
+      document.querySelectorAll("#icb-mat-cat-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.cat === icbMatCat));
+    }
+    if (state.icbMatValue) {
+      icbMatValue = state.icbMatValue;
+      document.querySelectorAll("#icb-mat-value-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === icbMatValue));
+    }
     if (state.ukPeriod) { ukState.period = state.ukPeriod; $("uk-period").value = state.ukPeriod; }
     if (state.ukMetric) { ukState.metric = state.ukMetric; $("uk-metric").value = state.ukMetric; }
+    if (state.ukCatMode) {
+      ukState.catMode = state.ukCatMode;
+      document.querySelectorAll("#uk-cat-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.catMode));
+    }
+    if (state.ukTrendDim) {
+      ukState.trendDim = state.ukTrendDim;
+      document.querySelectorAll("#uk-trend-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.trendDim));
+    }
+    if (state.ukTrendValue) {
+      ukState.trendValue = state.ukTrendValue;
+      document.querySelectorAll("#uk-trend-value-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.trendValue));
+    }
+    if (state.ukMatDim) {
+      ukState.matDim = state.ukMatDim;
+      document.querySelectorAll("#uk-mat-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.matDim));
+    }
+    if (state.ukMatValue) {
+      ukState.matValue = state.ukMatValue;
+      document.querySelectorAll("#uk-mat-value-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.matValue));
+    }
+    if (state.ukLeagueDim) {
+      ukState.leagueDim = state.ukLeagueDim;
+      document.querySelectorAll("#uk-league-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ukState.leagueDim));
+    }
+    if (state.iePeriod) { ieState.period = state.iePeriod; $("ie-period").value = state.iePeriod; }
+    if (state.ieMetric) { ieState.metric = state.ieMetric; $("ie-metric").value = state.ieMetric; }
+    if (state.ieTrendDim) {
+      ieState.trendDim = state.ieTrendDim;
+      document.querySelectorAll("#ie-trend-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.trendDim));
+    }
+    if (state.ieTrendValue) {
+      ieState.trendValue = state.ieTrendValue;
+      document.querySelectorAll("#ie-trend-value-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.trendValue));
+    }
+    if (state.ieMatDim) {
+      ieState.matDim = state.ieMatDim;
+      document.querySelectorAll("#ie-mat-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.matDim));
+    }
+    if (state.ieMatValue) {
+      ieState.matValue = state.ieMatValue;
+      document.querySelectorAll("#ie-mat-value-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.matValue));
+    }
+    if (state.ieLeagueDim) {
+      ieState.leagueDim = state.ieLeagueDim;
+      document.querySelectorAll("#ie-league-toggle button")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mode === ieState.leagueDim));
+    }
 
     document.querySelectorAll(".custom-range").forEach((el) => (el.hidden = $("f-period").value !== "custom"));
     document
@@ -2011,10 +1968,7 @@ function restoreFilters() {
     setMselOptions("manufacturer", DATA.meta.manufacturers);
     setMselOptions("brand", DATA.meta.brands);
     setMselOptions("icb", icbListForDropdown());
-    setMselOptions("ukhdm", [...HDM_ICBS.keys()].sort());
-    setMselOptions("ukmanufacturer", DATA.meta.manufacturers);
-    setMselOptions("ukbrand", DATA.meta.brands);
-    setMselOptions("ukicb", icbListForDropdown());
+    setMselOptions("ccg", DATA.meta.ccgs);
   } catch (_) { /* ignore corrupt state */ }
 }
 
@@ -2025,13 +1979,10 @@ function setupFilters() {
   setMselOptions("category", DATA.meta.categories);
   setMselOptions("region", DATA.meta.regions);
   setMselOptions("icb", DATA.meta.icbs);
+  setMselOptions("ccg", DATA.meta.ccgs);
   setMselOptions("manufacturer", DATA.meta.manufacturers);
   setMselOptions("brand", DATA.meta.brands);
   setMselOptions("hdm", [...HDM_ICBS.keys()].sort());
-  setMselOptions("ukicb", DATA.meta.icbs);
-  setMselOptions("ukmanufacturer", DATA.meta.manufacturers);
-  setMselOptions("ukbrand", DATA.meta.brands);
-  setMselOptions("ukhdm", [...HDM_ICBS.keys()].sort());
 
   const months = DATA.meta.months;
   const from = $("f-from"), to = $("f-to");
@@ -2057,6 +2008,12 @@ function setupFilters() {
     trendDim = "brand";
     trendValue = "actual";
     explorerMode = "actual";
+    icbMatCat = "AAF";
+    icbMatValue = "actual";
+    document.querySelectorAll("#icb-mat-cat-toggle button")
+      .forEach((b) => b.classList.toggle("active", b.dataset.cat === "AAF"));
+    document.querySelectorAll("#icb-mat-value-toggle button")
+      .forEach((b) => b.classList.toggle("active", b.dataset.mode === "actual"));
     document.querySelectorAll(".custom-range").forEach((el) => (el.hidden = true));
     document
       .querySelectorAll("#trend-toggle button")
@@ -2138,6 +2095,26 @@ function setupFilters() {
     })
   );
 
+  // ICB MAT year-on-year (MJN exclusives): AAF/EHF + Actuals/MS% toggles
+  document.querySelectorAll("#icb-mat-cat-toggle button").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#icb-mat-cat-toggle button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      icbMatCat = btn.dataset.cat;
+      saveFilters();
+      renderICBMatYoY();   // only this chart depends on these toggles
+    })
+  );
+  document.querySelectorAll("#icb-mat-value-toggle button").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#icb-mat-value-toggle button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      icbMatValue = btn.dataset.mode;
+      saveFilters();
+      renderICBMatYoY();
+    })
+  );
+
   $("tracker-back").addEventListener("click", () => {
     SEL.icb.clear();
     updateMselUI("icb");
@@ -2161,6 +2138,7 @@ function render() {
   renderDonut("chart-share", rows, "brand", "brand");
   renderDonut("chart-mfr", rows, "manufacturer", "manufacturer");
   renderTopICBs(rows);
+  renderICBMatYoY();
   // temporarily hidden along with their cards in index.html — uncomment both to restore
   // renderGLChart(rows);
   // renderGLTimeline();
@@ -2169,356 +2147,3 @@ function render() {
   renderTracker();
   renderGLTable(win);
 }
-
-// ---------- UK Performance page ----------
-
-const ukState = { period: "mat", metric: "factored_units" };
-
-function ukWindows() {
-  const months = DATA.meta.months;
-  const lastN = (n) => months.slice(-n);
-  const prevN = (n) => months.slice(-2 * n, -n);
-  if (ukState.period === "qtr")
-    return { cur: lastN(3), prev: prevN(3), label: "Rolling QTR", vs: "prior QTR" };
-  if (ukState.period === "ytd") {
-    const year = months[months.length - 1].slice(0, 4);
-    const cur = months.filter((m) => m.startsWith(year));
-    const prevYear = String(Number(year) - 1);
-    const mm = new Set(cur.map((m) => m.slice(5, 7)));
-    const prev = months.filter((m) => m.startsWith(prevYear) && mm.has(m.slice(5, 7)));
-    return { cur, prev, label: "YTD " + year, vs: "YTD " + prevYear };
-  }
-  if (ukState.period === "all")
-    return { cur: months, prev: [], label: "All data", vs: "" };
-  return { cur: lastN(12), prev: prevN(12), label: "MAT", vs: "prior MAT" };
-}
-
-function ukRows(win) {
-  const set = new Set(win);
-  return DATA.performance.filter(
-    (r) =>
-      set.has(r.date) &&
-      (!SEL.ukRegion.size || SEL.ukRegion.has(r.region)) &&
-      (!SEL.ukCategory.size || SEL.ukCategory.has(r.category))
-  );
-}
-
-function ukScopeLabel() {
-  const reg = SEL.ukRegion.size ? [...SEL.ukRegion].sort().join(" + ") : "all regions";
-  const cat = SEL.ukCategory.size ? [...SEL.ukCategory].sort().join(" + ") : "all categories";
-  return reg + " · " + cat;
-}
-
-function renderUKKPIs(win, cur, prev) {
-  const metric = ukState.metric;
-  const sum = (rows, m) => rows.reduce((s, r) => s + r[m], 0);
-
-  const volCur = sum(cur, "factored_units"), volPrev = sum(prev, "factored_units");
-  const valCur = sum(cur, "value"), valPrev = sum(prev, "value");
-
-  const total = sum(cur, metric);
-  const byMfr = [...sumBy(cur, (r) => r.manufacturer, metric).entries()].sort((a, b) => b[1] - a[1]);
-  const byBrand = [...sumBy(cur, (r) => r.brand, metric).entries()].sort((a, b) => b[1] - a[1]);
-  const topMfr = byMfr[0], topBrand = byBrand[0];
-
-  $("uk-kpis").innerHTML = `
-    <div class="card kpi">
-      <span class="kpi-label">Volume — ${win.label}</span>
-      <span class="kpi-value">${fmtNum(volCur)} KGs</span>
-      ${growthHTML(volCur, volPrev, win.vs)}
-      <span class="kpi-sub">${ukScopeLabel()}</span>
-    </div>
-    <div class="card kpi">
-      <span class="kpi-label">Value — ${win.label}</span>
-      <span class="kpi-value">£${fmtNum(valCur)}</span>
-      ${growthHTML(valCur, valPrev, win.vs)}
-      <span class="kpi-sub">${ukScopeLabel()}</span>
-    </div>
-    <div class="card kpi">
-      <span class="kpi-label">Top manufacturer</span>
-      <span class="kpi-value">${topMfr ? esc(topMfr[0]) : "—"}</span>
-      <span class="kpi-sub">${topMfr && total ? "MS% " + ((topMfr[1] / total) * 100).toFixed(1) + "%" : "no data"}</span>
-    </div>
-    <div class="card kpi">
-      <span class="kpi-label">Top brand</span>
-      <span class="kpi-value">${topBrand ? esc(topBrand[0]) : "—"}</span>
-      <span class="kpi-sub">${topBrand && total ? "MS% " + ((topBrand[1] / total) * 100).toFixed(1) + "%" : "no data"}</span>
-    </div>`;
-}
-
-function renderUKRegion(win, cur, prev) {
-  const metric = ukState.metric;
-  const curBy = sumBy(cur, (r) => r.region, metric);
-  const prevBy = sumBy(prev, (r) => r.region, metric);
-  const entries = [...curBy.entries()].sort((a, b) => b[1] - a[1]);
-
-  upsertChart("uk-chart-region", {
-    type: "bar",
-    data: {
-      labels: entries.map(([k]) => k),
-      datasets: [{
-        data: entries.map(([, v]) => v),
-        backgroundColor: "#4338ca",
-        borderRadius: 4,
-        datalabels: {
-          display: true, anchor: "end", align: "end", offset: 2, clamp: true,
-          color: "#1a2333", font: { size: 10, weight: "700" },
-          formatter: (v) => fmtNum(v),
-        },
-      }],
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true, maintainAspectRatio: false,
-      layout: { padding: { right: 48 } },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (c) => {
-              const region = entries[c.dataIndex][0];
-              const p = prevBy.get(region) || 0;
-              const g = p ? (((c.parsed.x - p) / p) * 100).toFixed(1) + "% vs " + win.vs : "no comparison";
-              return ` ${fmtMetricUK(c.parsed.x)} (${g})`;
-            },
-          },
-        },
-      },
-      scales: { x: { beginAtZero: true, ticks: { callback: (v) => fmtNum(v) } } },
-    },
-  });
-}
-
-function fmtMetricUK(n) {
-  return (ukState.metric === "value" ? "£" : "") + fmtNum(n) +
-    (ukState.metric === "factored_units" ? " KGs" : ukState.metric === "units" ? " units" : "");
-}
-
-function renderUKMfrTrend() {
-  const metric = ukState.metric;
-  const months = DATA.meta.months;
-  const rows = DATA.performance.filter(
-    (r) =>
-      (!SEL.ukRegion.size || SEL.ukRegion.has(r.region)) &&
-      (!SEL.ukCategory.size || SEL.ukCategory.has(r.category))
-  );
-  const mfrs = [...sumBy(rows, (r) => r.manufacturer, metric).entries()]
-    .sort((a, b) => b[1] - a[1]).map(([k]) => k);
-  const cell = new Map(), monthTotal = new Map();
-  for (const r of rows) {
-    cell.set(r.date + " " + r.manufacturer, (cell.get(r.date + " " + r.manufacturer) || 0) + r[metric]);
-    monthTotal.set(r.date, (monthTotal.get(r.date) || 0) + r[metric]);
-  }
-  upsertChart("uk-chart-mfr", {
-    type: "line",
-    data: {
-      labels: months.map(monthLabel),
-      datasets: mfrs.map((m, i) => ({
-        label: m,
-        data: months.map((mo) => {
-          const t = monthTotal.get(mo) || 0;
-          return t ? ((cell.get(mo + " " + m) || 0) / t) * 100 : 0;
-        }),
-        borderColor: colorFor(m, "manufacturer", i),
-        backgroundColor: colorFor(m, "manufacturer", i),
-        fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 8, borderWidth: 2,
-        datalabels: { display: false },
-      })),
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true } },
-        tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: MS% ${c.parsed.y.toFixed(1)}%` } },
-      },
-      scales: {
-        y: { beginAtZero: true, grace: "8%", ticks: { callback: (v) => v + "%" } },
-        x: { grid: { display: false } },
-      },
-    },
-  });
-}
-
-function renderUKCatMix() {
-  const metric = ukState.metric;
-  const months = DATA.meta.months;
-  const rows = DATA.performance.filter((r) => !SEL.ukRegion.size || SEL.ukRegion.has(r.region));
-  const cats = ["EHF", "AAF", "RICE"].filter(
-    (c) => DATA.meta.categories.includes(c) && (!SEL.ukCategory.size || SEL.ukCategory.has(c))
-  );
-  const cell = new Map();
-  for (const r of rows) cell.set(r.date + " " + r.category, (cell.get(r.date + " " + r.category) || 0) + r[metric]);
-  upsertChart("uk-chart-cat", {
-    type: "bar",
-    data: {
-      labels: months.map(monthLabel),
-      datasets: cats.map((c) => ({
-        label: c,
-        data: months.map((m) => cell.get(m + " " + c) || 0),
-        backgroundColor: CAT_COLORS[c],
-        borderRadius: 2,
-      })),
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true } },
-        tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${fmtMetricUK(c.parsed.y)}` } },
-      },
-      scales: {
-        x: { stacked: true, grid: { display: false } },
-        y: { stacked: true, ticks: { callback: (v) => fmtNum(v) } },
-      },
-    },
-  });
-}
-
-function renderUKMovers(win, cur, prev) {
-  const metric = ukState.metric;
-  const curBy = sumBy(cur, (r) => r.icb, metric);
-  const prevBy = sumBy(prev, (r) => r.icb, metric);
-  const total = [...curBy.values()].reduce((s, v) => s + v, 0);
-  const movers = [];
-  for (const [icb, c] of curBy) {
-    const p = prevBy.get(icb) || 0;
-    if (!p || c + p < total * 0.005) continue; // skip tiny bases
-    movers.push({ icb, pct: ((c - p) / p) * 100 });
-  }
-  movers.sort((a, b) => b.pct - a.pct);
-  const top = [...movers.slice(0, 5), ...movers.slice(-5)].filter(
-    (m, i, arr) => arr.findIndex((x) => x.icb === m.icb) === i
-  );
-  upsertChart("uk-chart-movers", {
-    type: "bar",
-    data: {
-      labels: top.map((m) => m.icb),
-      datasets: [{
-        data: top.map((m) => m.pct),
-        backgroundColor: top.map((m) => (m.pct >= 0 ? "#16a34a" : "#dc2626")),
-        borderRadius: 4,
-        datalabels: {
-          display: true, anchor: "end", align: "end", offset: 2, clamp: true,
-          color: "#1a2333", font: { size: 10, weight: "700" },
-          formatter: (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%",
-        },
-      }],
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true, maintainAspectRatio: false,
-      layout: { padding: { right: 54 } },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (c) => ` ${(c.parsed.x >= 0 ? "+" : "") + c.parsed.x.toFixed(1)}% vs ${win.vs}` } },
-      },
-      scales: { x: { ticks: { callback: (v) => v + "%" } } },
-    },
-  });
-}
-
-function renderUKBrandTable(win, cur, prev) {
-  const metric = ukState.metric;
-  const brandMfr = new Map();
-  for (const r of cur) if (!brandMfr.has(r.brand)) brandMfr.set(r.brand, r.manufacturer);
-  const curBy = sumBy(cur, (r) => r.brand, metric);
-  const prevBy = sumBy(prev, (r) => r.brand, metric);
-  const curTotal = [...curBy.values()].reduce((s, v) => s + v, 0);
-  const prevTotal = [...prevBy.values()].reduce((s, v) => s + v, 0);
-
-  const rows = [...curBy.entries()].sort((a, b) => b[1] - a[1]).map(([b, v]) => {
-    const p = prevBy.get(b) || 0;
-    const ms = curTotal ? (v / curTotal) * 100 : 0;
-    const msPrev = prevTotal ? (p / prevTotal) * 100 : null;
-    return { brand: b, mfr: brandMfr.get(b) || "", vol: v, growth: p ? ((v - p) / p) * 100 : null, ms, dms: msPrev != null ? ms - msPrev : null };
-  });
-
-  document.querySelector("#uk-brand-table tbody").innerHTML = rows.map((r) => `
-    <tr>
-      <td><strong>${esc(r.brand)}</strong></td>
-      <td>${esc(r.mfr)}</td>
-      <td class="num">${fmtMetricUK(r.vol)}</td>
-      <td class="num">${r.growth == null ? "—" : deltaHTML(r.growth, 0, "%")}</td>
-      <td class="num"><strong>${r.ms.toFixed(1)}%</strong></td>
-      <td class="num">${r.dms == null ? "—" : deltaHTML(r.dms, 0, "pt")}</td>
-    </tr>`).join("");
-}
-
-function renderUK() {
-  const win = ukWindows();
-  const cur = ukRows(win.cur);
-  const prev = ukRows(win.prev);
-  $("uk-caption").textContent =
-    `${win.label}: ${windowLabel(win.cur)}` +
-    (win.prev.length ? `  ·  compared with ${win.vs}: ${windowLabel(win.prev)}` : "");
-  renderUKKPIs(win, cur, prev);
-  renderUKRegion(win, cur, prev);
-  renderUKMfrTrend();
-  renderUKCatMix();
-  renderUKMovers(win, cur, prev);
-  renderUKBrandTable(win, cur, prev);
-}
-
-function setupUK() {
-  setMselOptions("ukCategory", DATA.meta.categories);
-  setMselOptions("ukRegion", DATA.meta.regions);
-  for (const [id, key] of [["uk-period", "period"], ["uk-metric", "metric"]]) {
-    $(id).addEventListener("change", () => {
-      ukState[key] = $(id).value;
-      saveFilters();
-      renderUK();
-    });
-  }
-  $("uk-clear").addEventListener("click", () => {
-    SEL.ukRegion.clear();
-    SEL.ukCategory.clear();
-    updateMselUI("ukRegion");
-    updateMselUI("ukCategory");
-    ukState.period = "mat";
-    ukState.metric = "factored_units";
-    $("uk-period").value = "mat";
-    $("uk-metric").value = "factored_units";
-    saveFilters();
-    renderUK();
-  });
-}
-
-// ---------- page navigation (hash routing) ----------
-
-function currentPage() {
-  const h = location.hash.replace(/^#\/?/, "");
-  return ["uk", "ireland", "guidelines"].includes(h) ? h : "home";
-}
-
-function showPage() {
-  const p = currentPage();
-  $("page-landing").hidden = p !== "home";
-  $("page-uk").hidden = p !== "uk";
-  $("page-ireland").hidden = p !== "ireland";
-  const onDash = p === "guidelines";
-  $("dashboard").hidden = !(onDash && DATA);
-  $("loading").hidden = !(onDash && !DATA);
-  $("header-tools").hidden = !onDash;
-  document
-    .querySelectorAll("#top-nav a")
-    .forEach((a) => a.classList.toggle("active", a.dataset.page === p));
-  // charts need visible canvases to size correctly — rebuild on entry
-  if (onDash && DATA) render();
-  if (p === "uk" && DATA) renderUK();
-}
-
-window.addEventListener("hashchange", showPage);
-
-(async function init() {
-  showPage(); // landing (or hash target) appears immediately while data loads
-  try {
-    await loadData();
-    setupFilters();
-    restoreFilters();
-    setupUK();
-    showPage(); // reveal the dashboard (or UK page) now that data is ready
-  } catch (e) {
-    $("loading").textContent = "Failed to load data: " + e.message;
-    $("loading").hidden = currentPage() !== "guidelines";
-  }
-})();

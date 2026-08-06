@@ -3,30 +3,466 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Specialist Formula Dashboard — Guidelines &amp; Performance</title>
+  <title>Nutrition Performance — United Kingdom &amp; Ireland</title>
+  <!-- set the theme BEFORE CSS paints, so dark mode never flashes white -->
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem("dashboard-theme");
+        var dark = s ? s === "dark"
+          : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/headroom.js@0.12.0/dist/headroom.min.js"></script>
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <div>
-        <h1>Specialist Formula Dashboard</h1>
-        <p class="subtitle">EHF / AAF / RICE guidelines &amp; prescribing performance by ICB</p>
+      <div class="brand">
+        <h1>NUTRITION PERFORMANCE</h1>
+        <p class="subtitle">United Kingdom &amp; Ireland</p>
       </div>
-      <div class="header-right">
-        <span id="generated-at" class="generated"></span>
-        <button id="refresh-btn" title="Re-read the source Excel files">&#8635; Refresh data</button>
+      <nav class="top-nav" id="top-nav">
+        <a href="#/" data-page="home">Home</a>
+        <a href="#/uk" data-page="uk">UK Performance</a>
+        <a href="#/ireland" data-page="ireland">Ireland Performance</a>
+        <a href="#/guidelines" data-page="guidelines">Guidelines</a>
+      </nav>
+      <div class="header-cluster">
+        <div class="header-right" id="header-tools" hidden>
+          <span id="generated-at" class="generated"></span>
+          <button id="clear-all-filters" title="Clear all filters on every page">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="15" height="15" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"/>
+              <path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/>
+              <path d="M14.5 17.5 4.5 15"/>
+            </svg>
+            Clear filters
+          </button>
+          <button id="refresh-btn" title="Re-read the source Excel files">&#8635; Refresh data</button>
+        </div>
+        <button id="rls-badge" class="rls-badge" hidden title="Switch who you're viewing as"></button>
+        <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
       </div>
     </div>
   </header>
 
-  <div id="loading" class="loading">Loading data&hellip;</div>
+  <!-- RLS login gate: pick an HDM (or full access) before the dashboard shows -->
+  <div id="rls-gate" class="rls-gate" hidden>
+    <div class="rls-card">
+      <span class="mono gl rls-logo">GL</span>
+      <h2>Nutrition Performance</h2>
+      <p>Select your access to continue — you'll only see the ICBs you own.</p>
+      <label for="rls-select">Access as</label>
+      <select id="rls-select"></select>
+      <button id="rls-continue" class="rls-btn">Continue &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Landing page (default) -->
+  <section id="page-landing" class="page landing" hidden>
+    <div class="hero">
+      <h2>Specialist Formula Intelligence !</h2>
+    </div>
+    <div class="landing-grid">
+      <a class="nav-card" href="#/uk">
+        <span class="mono uk">UK</span>
+        <h3>UK Performance</h3>
+        <p>Prescribing performance across UK ICBs — volumes, market share and brand trends.</p>
+        <span class="badge exclusive">Live</span>
+      </a>
+      <a class="nav-card" href="#/ireland">
+        <span class="mono ie">IE</span>
+        <h3>Ireland Performance</h3>
+        <p>Sell-out performance for Ireland — volumes, market share and brand trends by county and mini brick.</p>
+        <span class="badge exclusive">Live</span>
+      </a>
+      <a class="nav-card" href="#/guidelines">
+        <span class="mono gl">GL</span>
+        <h3>Guidelines</h3>
+        <p>Guideline register, change tracker, exclusivity compliance and performance by ICB.</p>
+        <span class="badge exclusive">Live</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- UK Performance page (same split layout as Guidelines) -->
+  <section id="page-uk" class="page page-split" hidden>
+    <aside class="sidebar">
+    <section class="filters card">
+      <!-- Filter order (kept identical on every page): Metric · Period ·
+           Product (Category, Manufacturer, Brand) · Geography (Region, ICB) · HDM -->
+      <div class="filter">
+        <label for="uk-metric">Metric</label>
+        <select id="uk-metric">
+          <option value="factored_units" selected>Factored Units (KGs)</option>
+          <option value="value">Value (&pound;)</option>
+          <option value="units">Units</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label for="uk-period">Period</label>
+        <select id="uk-period">
+          <option value="mat">MAT (12 mo)</option>
+          <option value="qtr">Rolling QTR (3 mo)</option>
+          <option value="ytd">YTD</option>
+          <option value="all">All data</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label>Category</label>
+        <div class="msel" id="ms-ukCategory">
+          <button type="button" class="msel-btn">All categories</button>
+          <button type="button" class="msel-clear" title="Clear categories" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Manufacturer</label>
+        <div class="msel" id="ms-ukmanufacturer">
+          <button type="button" class="msel-btn">All manufacturers</button>
+          <button type="button" class="msel-clear" title="Clear manufacturers" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Brand</label>
+        <div class="msel" id="ms-ukbrand">
+          <button type="button" class="msel-btn">All brands</button>
+          <button type="button" class="msel-clear" title="Clear brands" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>NHS Region</label>
+        <div class="msel" id="ms-ukRegion">
+          <button type="button" class="msel-btn">All regions</button>
+          <button type="button" class="msel-clear" title="Clear regions" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>ICB / APC</label>
+        <div class="msel" id="ms-ukicb">
+          <button type="button" class="msel-btn">All ICBs</button>
+          <button type="button" class="msel-clear" title="Clear ICBs" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>CCG</label>
+        <div class="msel" id="ms-ukccg">
+          <button type="button" class="msel-btn">All CCGs</button>
+          <button type="button" class="msel-clear" title="Clear CCGs" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>HDM</label>
+        <div class="msel" id="ms-ukhdm">
+          <button type="button" class="msel-btn">All HDMs</button>
+          <button type="button" class="msel-clear" title="Clear HDMs" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <button id="uk-clear" class="ghost">Clear all</button>
+    </section>
+    </aside>
+
+    <div class="content">
+    <p class="period-caption" id="uk-caption"></p>
+
+    <section class="kpis" id="uk-kpis"></section>
+
+    <section class="grid-2">
+      <div class="card chart-card wide">
+        <h2>Volume by NHS region <span class="hint">(selected period, with growth vs comparison period)</span></h2>
+        <div class="chart-wrap tall"><canvas id="uk-chart-region"></canvas></div>
+      </div>
+      <div class="card chart-card wide">
+        <div class="card-head">
+          <h2>Monthly trend <span class="hint" id="uk-trend-hint"></span></h2>
+          <div class="toggle-group">
+            <div class="toggle" id="uk-trend-toggle">
+              <button data-mode="brand" class="active">By brand</button>
+              <button data-mode="product">By product</button>
+              <button data-mode="manufacturer">By manufacturer</button>
+              <button data-mode="category">By category</button>
+            </div>
+            <div class="toggle" id="uk-trend-value-toggle">
+              <button data-mode="actual" class="active">Actuals</button>
+              <button data-mode="ms">MS%</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="uk-chart-trend"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <div class="card-head">
+          <h2>Category mix <span class="hint">(quarterly, full range)</span></h2>
+          <div class="toggle" id="uk-cat-toggle">
+            <button data-mode="ms" class="active">MS%</button>
+            <button data-mode="actual">Actuals</button>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="uk-chart-cat"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <h2>ICB movers <span class="hint">(growth &amp; decline vs comparison period)</span></h2>
+        <div class="chart-wrap tall"><canvas id="uk-chart-movers"></canvas></div>
+      </div>
+
+      <div class="card chart-card wide">
+        <div class="card-head">
+          <h2>MAT year-on-year <span class="hint" id="uk-mat-hint"></span></h2>
+          <div class="toggle-group">
+            <div class="toggle" id="uk-mat-toggle">
+              <button data-mode="brand" class="active">Brands</button>
+              <button data-mode="product">Products</button>
+            </div>
+            <div class="toggle" id="uk-mat-value-toggle">
+              <button data-mode="actual" class="active">Actuals</button>
+              <button data-mode="ms">MS%</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="uk-chart-mat"></canvas></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>League table <span class="hint">(selected period vs comparison period)</span></h2>
+        <div class="toggle" id="uk-league-toggle">
+          <button data-mode="brand" class="active">Brands</button>
+          <button data-mode="product">Products</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="uk-brand-table">
+          <thead>
+            <tr>
+              <th id="uk-league-col1">Brand</th>
+              <th id="uk-league-col2">Manufacturer</th>
+              <th class="num">Volume</th><th class="num">&Delta; vs prior</th>
+              <th class="num">MS%</th><th class="num">&Delta; MS%</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+    </div><!-- /.content -->
+  </section>
+  <!-- Ireland Performance page (same split layout as UK) -->
+  <section id="page-ireland" class="page" hidden>
+    <!-- shown when the Ireland workbook is missing or RLS hides Ireland -->
+    <div class="card placeholder-card" id="ie-placeholder" hidden>
+      <span class="mono ie">IE</span>
+      <h2>Ireland Performance</h2>
+      <p id="ie-placeholder-msg">Drop <strong>Ireland Data.xlsx</strong> into the data folder to light this page up.</p>
+      <a class="btn-link" href="#/">Back to Home &rarr;</a>
+    </div>
+
+    <div class="page-split" id="ie-main" hidden>
+    <aside class="sidebar">
+    <section class="filters card">
+      <!-- Filter order mirrors the other pages: Metric · Period · Product
+           attributes (Category, Manufacturer, Brand, Product) · Geography
+           (Province, County, Brick, Mini Brick) · Account Plan. No HDM —
+           Ireland has a single owner (Celine Jordan). -->
+      <div class="filter">
+        <label for="ie-metric">Metric</label>
+        <select id="ie-metric">
+          <option value="units" selected>Units (tins)</option>
+          <option value="factored_units">Factored Units (KGs)</option>
+          <option value="value">Value (&euro;)</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label for="ie-period">Period</label>
+        <select id="ie-period">
+          <option value="mat">MAT (12 mo)</option>
+          <option value="qtr">Rolling QTR (3 mo)</option>
+          <option value="ytd">YTD</option>
+          <option value="all">All data</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label>Category</label>
+        <div class="msel" id="ms-ieCategory">
+          <button type="button" class="msel-btn">All categories</button>
+          <button type="button" class="msel-clear" title="Clear categories" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Manufacturer</label>
+        <div class="msel" id="ms-ieManufacturer">
+          <button type="button" class="msel-btn">All manufacturers</button>
+          <button type="button" class="msel-clear" title="Clear manufacturers" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Brand</label>
+        <div class="msel" id="ms-iebrand">
+          <button type="button" class="msel-btn">All brands</button>
+          <button type="button" class="msel-clear" title="Clear brands" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Product</label>
+        <div class="msel" id="ms-ieproduct">
+          <button type="button" class="msel-btn">All products</button>
+          <button type="button" class="msel-clear" title="Clear products" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Province</label>
+        <div class="msel" id="ms-ieprovince">
+          <button type="button" class="msel-btn">All provinces</button>
+          <button type="button" class="msel-clear" title="Clear provinces" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>County</label>
+        <div class="msel" id="ms-iecounty">
+          <button type="button" class="msel-btn">All counties</button>
+          <button type="button" class="msel-clear" title="Clear counties" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Brick</label>
+        <div class="msel" id="ms-iebrick">
+          <button type="button" class="msel-btn">All bricks</button>
+          <button type="button" class="msel-clear" title="Clear bricks" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Mini Brick</label>
+        <div class="msel" id="ms-ieminibrick">
+          <button type="button" class="msel-btn">All mini bricks</button>
+          <button type="button" class="msel-clear" title="Clear mini bricks" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>Account Plan</label>
+        <div class="msel" id="ms-ieplan">
+          <button type="button" class="msel-btn">All account plans</button>
+          <button type="button" class="msel-clear" title="Clear account plans" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <button id="ie-clear" class="ghost">Clear all</button>
+    </section>
+    </aside>
+
+    <div class="content">
+    <p class="period-caption" id="ie-caption"></p>
+
+    <section class="kpis" id="ie-kpis"></section>
+
+    <section class="grid-2">
+      <div class="card chart-card wide">
+        <h2>Volume by province <span class="hint">(selected period, with growth vs comparison period)</span></h2>
+        <div class="chart-wrap tall"><canvas id="ie-chart-region"></canvas></div>
+      </div>
+      <div class="card chart-card wide">
+        <div class="card-head">
+          <h2>Monthly trend <span class="hint" id="ie-trend-hint"></span></h2>
+          <div class="toggle-group">
+            <div class="toggle" id="ie-trend-toggle">
+              <button data-mode="brand" class="active">By brand</button>
+              <button data-mode="product">By product</button>
+              <button data-mode="manufacturer">By manufacturer</button>
+            </div>
+            <div class="toggle" id="ie-trend-value-toggle">
+              <button data-mode="actual" class="active">Actuals</button>
+              <button data-mode="ms">MS%</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="ie-chart-trend"></canvas></div>
+      </div>
+      <div class="card chart-card wide">
+        <h2>Top 15 bricks <span class="hint">(selected period)</span></h2>
+        <div class="chart-wrap tall"><canvas id="ie-chart-bricks"></canvas></div>
+      </div>
+      <div class="card chart-card wide">
+        <div class="card-head">
+          <h2>MAT year-on-year <span class="hint" id="ie-mat-hint"></span></h2>
+          <div class="toggle-group">
+            <div class="toggle" id="ie-mat-toggle">
+              <button data-mode="brand" class="active">Brands</button>
+              <button data-mode="product">Products</button>
+            </div>
+            <div class="toggle" id="ie-mat-value-toggle">
+              <button data-mode="actual" class="active">Actuals</button>
+              <button data-mode="ms">MS%</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="ie-chart-mat"></canvas></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>League table <span class="hint">(selected period vs comparison period)</span></h2>
+        <div class="toggle" id="ie-league-toggle">
+          <button data-mode="brand" class="active">Brands</button>
+          <button data-mode="product">Products</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="ie-product-table">
+          <thead>
+            <tr id="ie-league-head">
+              <th>Brand</th><th>Manufacturer</th>
+              <th class="num">Volume</th><th class="num">&Delta; vs prior</th>
+              <th class="num">MS%</th><th class="num">&Delta; MS%</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+    </div><!-- /.content -->
+    </div><!-- /#ie-main -->
+  </section>
+
+  <div id="loading" class="loading" hidden>Loading data&hellip;</div>
 
   <main id="dashboard" hidden>
-    <!-- Filters -->
+    <!-- Filters: sticky left sidebar -->
+    <aside class="sidebar">
     <section class="filters card">
+      <!-- Filter order (kept identical on every page): Metric · Period ·
+           Product (Category, Manufacturer, Brand) · Geography (Region, ICB) · HDM -->
+      <div class="filter">
+        <label for="f-metric">Metric</label>
+        <select id="f-metric">
+          <option value="factored_units" selected>Factored Units (KGs)</option>
+          <option value="value">Value (&pound;)</option>
+          <option value="units">Units</option>
+        </select>
+      </div>
       <div class="filter">
         <label for="f-period">Period</label>
         <select id="f-period">
@@ -46,34 +482,10 @@
         <select id="f-to"></select>
       </div>
       <div class="filter">
-        <label for="f-metric">Metric</label>
-        <select id="f-metric">
-          <option value="factored_units" selected>Factored Units (KGs)</option>
-          <option value="value">Value (&pound;)</option>
-          <option value="units">Units</option>
-        </select>
-      </div>
-      <div class="filter">
         <label>Category</label>
         <div class="msel" id="ms-category">
           <button type="button" class="msel-btn">All categories</button>
           <button type="button" class="msel-clear" title="Clear categories" hidden>&times;</button>
-          <div class="msel-panel" hidden></div>
-        </div>
-      </div>
-      <div class="filter">
-        <label>NHS Region</label>
-        <div class="msel" id="ms-region">
-          <button type="button" class="msel-btn">All regions</button>
-          <button type="button" class="msel-clear" title="Clear regions" hidden>&times;</button>
-          <div class="msel-panel" hidden></div>
-        </div>
-      </div>
-      <div class="filter">
-        <label>ICB / APC</label>
-        <div class="msel" id="ms-icb">
-          <button type="button" class="msel-btn">All ICBs</button>
-          <button type="button" class="msel-clear" title="Clear ICBs" hidden>&times;</button>
           <div class="msel-panel" hidden></div>
         </div>
       </div>
@@ -94,6 +506,30 @@
         </div>
       </div>
       <div class="filter">
+        <label>NHS Region</label>
+        <div class="msel" id="ms-region">
+          <button type="button" class="msel-btn">All regions</button>
+          <button type="button" class="msel-clear" title="Clear regions" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>ICB / APC</label>
+        <div class="msel" id="ms-icb">
+          <button type="button" class="msel-btn">All ICBs</button>
+          <button type="button" class="msel-clear" title="Clear ICBs" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
+        <label>CCG</label>
+        <div class="msel" id="ms-ccg">
+          <button type="button" class="msel-btn">All CCGs</button>
+          <button type="button" class="msel-clear" title="Clear CCGs" hidden>&times;</button>
+          <div class="msel-panel" hidden></div>
+        </div>
+      </div>
+      <div class="filter">
         <label>HDM</label>
         <div class="msel" id="ms-hdm">
           <button type="button" class="msel-btn">All HDMs</button>
@@ -103,6 +539,10 @@
       </div>
       <button id="clear-filters" class="ghost">Clear all</button>
     </section>
+    </aside>
+
+    <!-- Main content column -->
+    <div class="content">
     <p class="period-caption" id="period-caption"></p>
 
     <!-- Per-category KPI cards -->
@@ -156,8 +596,25 @@
         <div class="chart-wrap tall"><canvas id="chart-icbs"></canvas></div>
       </div>
 
+      <div class="card chart-card wide">
+        <div class="card-head">
+          <h2>ICB MAT year-on-year — MJN exclusives <span class="hint" id="icb-mat-hint"></span></h2>
+          <div class="toggle-group">
+            <div class="toggle" id="icb-mat-cat-toggle">
+              <button data-cat="AAF" class="active">AAF</button>
+              <button data-cat="EHF">EHF</button>
+            </div>
+            <div class="toggle" id="icb-mat-value-toggle">
+              <button data-mode="actual" class="active">Actuals</button>
+              <button data-mode="ms">MS%</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chart-icb-mat"></canvas></div>
+      </div>
+
       <!-- temporarily hidden (restore by uncommenting; JS render calls are
-           commented out in dashboard.js render() too)
+           commented out in guidelines.js render() too)
       <div class="card chart-card wide">
         <h2>Guideline status vs brand mix <span class="hint">(MS% within each guideline status)</span></h2>
         <div class="chart-wrap tall"><canvas id="chart-gl"></canvas></div>
@@ -259,8 +716,15 @@
         </table>
       </div>
     </section>
+    </div><!-- /.content -->
   </main>
 
-  <script src="/js/dashboard.js"></script>
+  <!-- Load order matters: shared first (constants, slicer engine, data
+       loading), then the per-page files, then main.js which starts the app. -->
+  <script src="/js/shared.js"></script>
+  <script src="/js/guidelines.js"></script>
+  <script src="/js/uk.js"></script>
+  <script src="/js/ireland.js"></script>
+  <script src="/js/main.js"></script>
 </body>
 </html>
